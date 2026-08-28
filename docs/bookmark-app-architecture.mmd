@@ -1,0 +1,57 @@
+flowchart TB
+    subgraph Capture["Capture Points"]
+        EXT["Chrome Extension\n(Manifest V3)\nTier 1: reads DOM directly\nog:image, title, video/img src\nTier 2: falls back to plain\nlink if no media found\npermissions: <all_urls>,\ncontextMenus, storage, cookies\nright-click save only, no on-page UI"]
+        WEB["Web App\n(manual save / paste link)\nTier 2: plain bookmark fallback"]
+        UPLOAD["Web App / Extension\nTier 3: direct image\ncopy-paste or file upload\n(no source url)"]
+    end
+
+    subgraph Frontend["Frontend — Next.js on Vercel (free tier)"]
+        UI["Web App UI\nfeed / sections / search"]
+    end
+
+    subgraph API["API Layer — Next.js API Routes / Vercel Serverless (free tier)"]
+        AUTH_MW["Auth middleware"]
+        SAVE["/api/save\n(create item)"]
+        SCRAPE["/api/scrape\n(fetch og:image, og:title,\ncontent-type detection)"]
+        SECTIONS["/api/sections\n/api/tags"]
+        READ["/api/items\ncursor-paginated feed\n(cursor = saved_at, newest first)\n+ /api/search\n(Postgres full-text search\nover title + tags)"]
+    end
+
+    subgraph Backend["Supabase (free tier)"]
+        SBAUTH["Supabase Auth\n(email + OAuth)"]
+        DB[("Postgres DB\nUSER / ITEM / SECTION /\nTAG / NOTE tables\naccessed via Prisma ORM")]
+    end
+
+    subgraph AWS["AWS (pay-as-you-go)"]
+        STORAGE["S3 Bucket\nfor Tier 3 direct uploads\n(IAM-scoped access,\npresigned URLs for upload/read)"]
+    end
+
+    EXT -->|"POST url + DOM-scraped\nthumbnail/title (already extracted,\nno server scrape needed)"| SAVE
+    WEB -->|"POST pasted url only\n(no DOM access)"| SAVE
+    UPLOAD -->|"POST raw image file/blob\n(no source url)"| SAVEIMG["/api/save-image\n(upload path)"]
+    UI -->|"fetch sections/tags"| SECTIONS
+    UI -->|"fetch feed (masonry,\ninfinite scroll) / search"| READ
+
+    SAVE --> AUTH_MW
+    SAVEIMG --> AUTH_MW
+    SECTIONS --> AUTH_MW
+    READ --> AUTH_MW
+    AUTH_MW --> SBAUTH
+
+    SAVE -->|"only if no thumbnail\nwas provided by extension"| SCRAPE
+    SCRAPE -->|"thumbnail_url\n(hotlinked, no re-hosting = $0)"| DB
+    SAVE -->|"item + metadata"| DB
+    SECTIONS --> DB
+
+    SAVEIMG -->|"upload via presigned URL"| STORAGE
+    STORAGE -->|"returns S3 object url"| SAVEIMG
+    SAVEIMG -->|"item + S3 url\nas thumbnail_url"| DB
+
+    READ -->|"paginated query, newest first,\nunique(user_id, url) prevents dupes"| DB
+    UI -->|"render thumbnails\n(hotlinked or S3 url,\nsame field either way)"| STORAGE
+
+    style Capture fill:#f5f0eb
+    style Frontend fill:#f5f0eb
+    style API fill:#f5f0eb
+    style Backend fill:#f5f0eb
+    style AWS fill:#eef2f5

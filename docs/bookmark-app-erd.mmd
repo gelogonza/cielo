@@ -1,0 +1,58 @@
+erDiagram
+    USER ||--o{ ITEM : saves
+    USER ||--o{ SECTION : creates
+    USER ||--o{ TAG : creates
+
+    ITEM }o--o{ SECTION : "belongs to (via ITEM_SECTION)"
+    ITEM }o--o{ TAG : "tagged with (via ITEM_TAG)"
+
+    ITEM ||--o| NOTE : "has"
+
+    USER {
+        uuid id PK
+        string email
+        string password_hash
+        datetime created_at
+    }
+
+    SECTION {
+        uuid id PK
+        uuid user_id FK
+        string name
+        datetime created_at
+    }
+
+    ITEM {
+        uuid id PK
+        uuid user_id FK
+        string url "nullable — null for direct uploads. UNIQUE(user_id, url) so re-saving a url reuses this row instead of duplicating"
+        string title "indexed — Postgres full-text search (tsvector) over title + joined tag names"
+        string thumbnail_url
+        enum content_type "link, image, video, text"
+        enum source_type "web, direct"
+        string source_platform "tiktok, instagram, x, web, null for direct"
+        datetime saved_at "indexed — cursor for infinite scroll, default sort newest first"
+    }
+
+    ITEM_SECTION {
+        uuid item_id FK "ON DELETE CASCADE — deleting a section only removes this row, ITEM stays intact and still visible in General"
+        uuid section_id FK "ON DELETE CASCADE"
+    }
+
+    TAG {
+        uuid id PK
+        uuid user_id FK
+        string name
+    }
+
+    ITEM_TAG {
+        uuid item_id FK
+        uuid tag_id FK
+    }
+
+    NOTE {
+        uuid id PK
+        uuid item_id FK
+        text body
+        datetime created_at
+    }
