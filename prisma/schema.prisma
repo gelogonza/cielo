@@ -1,0 +1,136 @@
+// schema.prisma
+// Matches bookmark-app-erd.mermaid. Two corrections made during backcheck — see notes below.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ContentType {
+  LINK
+  IMAGE
+  VIDEO
+  CAROUSEL // added during backcheck — Instagram/X multi-image posts were discussed
+           // in the DOM-scraping design but never added to the ERD's content_type list
+  TEXT
+}
+
+enum SourceType {
+  WEB
+  DIRECT
+}
+
+// CORRECTION: the ERD listed `password_hash` on USER, but since auth runs through
+// Supabase Auth, credentials live in Supabase's own auth.users table — this app's
+// User table should NOT duplicate password hashes. This model's `id` is expected
+// to match the corresponding auth.users.id (Supabase issues it on signup).
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  items     Item[]
+  sections  Section[]
+  tags      Tag[]
+
+  @@map("users")
+}
+
+model Section {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  items ItemSection[]
+
+  @@map("sections")
+}
+
+model Item {
+  id             String      @id @default(uuid())
+  userId         String      @map("user_id")
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url            String?     // nullable — null for direct uploads (source_type = DIRECT)
+  title          String?
+  thumbnailUrl   String?     @map("thumbnail_url") // hotlinked url (web) or S3 object url (direct)
+  contentType    ContentType @map("content_type")
+  sourceType     SourceType  @map("source_type")
+  sourcePlatform String?     @map("source_platform") // "tiktok" | "instagram" | "x" | "web" | null for direct
+  savedAt        DateTime    @default(now()) @map("saved_at")
+
+  sections ItemSection[]
+  tags     ItemTag[]
+  note     Note?
+
+  // Postgres treats NULL as distinct in unique constraints, so multiple
+  // direct uploads (url = null) never collide with each other here.
+  @@unique([userId, url], name: "unique_user_url")
+  @@index([savedAt]) // cursor for infinite scroll, newest-first default sort
+  @@map("items")
+}
+
+model ItemSection {
+  itemId    String  @map("item_id")
+  sectionId String  @map("section_id")
+  item      Item    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  // Deleting a section cascades here only — Item rows are untouched and
+  // stay visible in the computed "General" view (all items for user_id).
+  @@id([itemId, sectionId])
+  @@map("item_sections")
+}
+
+model Tag {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+
+  items ItemTag[]
+
+  @@unique([userId, name]) // no duplicate tag names per user
+  @@map("tags")
+}
+
+model ItemTag {
+  itemId String @map("item_id")
+  tagId  String @map("tag_id")
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+  @@map("item_tags")
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  itemId    String   @unique @map("item_id") // 1:1 — one note per item
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notes")
+}
+
+// ---------------------------------------------------------------------------
+// NOT expressible in schema.prisma — apply as a follow-up raw SQL migration:
+//
+// Full-text search index (title + tag names) referenced in the architecture
+// doc's /api/search route. Prisma doesn't support generated tsvector columns
+// without the postgresqlExtensions preview feature, so add manually:
+//
+//   ALTER TABLE items ADD COLUMN search_vector tsvector
+//     GENERATED ALWAYS AS (to_tsvector('english', coalesce(title, ''))) STORED;
+//   CREATE INDEX items_search_idx ON items USING GIN (search_vector);
+//
+// Tag-name search should be a separate query (join item_tags -> tags,
+// ILIKE or to_tsvector on tags.name) and unioned/combined in the API layer,
+// since tags live in a different table than the item's own search_vector.
+// ---------------------------------------------------------------------------
