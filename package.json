@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "build:extension": "esbuild extension/src/content-script.js --bundle --format=iife --outfile=extension/content-script.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -34,6 +35,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "eslint-config-prettier": "^10.1.8",

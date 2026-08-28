@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Cielo",
+  "version": "0.1.0",
+  "description": "Save content from anywhere into your Cielo library.",
+  "permissions": ["contextMenus", "storage", "cookies"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup.html"
+  }
+}

@@ -67,8 +67,16 @@ npm run test:integration  # API route tests against a test database only
 
 ## Running the extension locally
 
-Not yet scaffolded (Phase 6). Once it exists: `chrome://extensions` → enable Developer mode →
-Load unpacked → select `extension/` → point its API base URL at `http://localhost:3000`.
+```bash
+npm run build:extension   # bundles extension/src/content-script.js -> extension/content-script.js
+```
+
+Then in Chrome: `chrome://extensions` → enable Developer mode → Load unpacked → select the
+`extension/` folder. It targets `http://localhost:3000` by default (see
+`extension/src/lib/config.js`) — run `npm run dev` first so right-click "Save to Cielo" and the
+popup's login check have something to talk to. Re-run `build:extension` after editing
+`extension/src/content-script.js` or its `lib/` imports; other extension files (`background.js`,
+`popup.js`) are loaded as native ES modules and don't need bundling.
 
 ## Reference docs
 

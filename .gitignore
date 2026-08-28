@@ -43,3 +43,6 @@ next-env.d.ts
 
 # prisma (generated client — regenerated via postinstall `prisma generate`)
 /lib/generated/
+
+# extension (bundled content script — regenerated via `npm run build:extension`)
+/extension/content-script.js
