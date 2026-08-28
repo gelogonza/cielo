@@ -35,15 +35,15 @@ migration once the base schema is in place; that file has the exact commands.
 
 ## Environment variables
 
-| Variable                        | Description                                           | Where to get it                                  |
-| ------------------------------- | ----------------------------------------------------- | ------------------------------------------------ |
-| `DATABASE_URL`                  | Postgres connection string, used by Prisma            | Supabase dashboard → Project Settings → Database |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL, used by the Auth client SDK     | Supabase dashboard → Project Settings → API      |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key, used by the Auth client SDK | Supabase dashboard → Project Settings → API      |
-| `AWS_REGION`                    | Region of the S3 bucket used for direct uploads       | AWS S3 console                                   |
-| `AWS_S3_BUCKET_NAME`            | Bucket name for direct uploads                        | AWS S3 console                                   |
-| `AWS_ACCESS_KEY_ID`             | IAM user access key, scoped to the upload bucket only | AWS IAM console                                  |
-| `AWS_SECRET_ACCESS_KEY`         | IAM user secret key                                   | AWS IAM console                                  |
+| Variable                               | Description                                           | Where to get it                                  |
+| -------------------------------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| `DATABASE_URL`                         | Postgres connection string, used by Prisma            | Supabase dashboard → Project Settings → Database |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Supabase project URL, used by the Auth client SDK     | Supabase dashboard → Project Settings → API      |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key, used by the Auth client SDK | Supabase dashboard → Project Settings → API      |
+| `AWS_REGION`                           | Region of the S3 bucket used for direct uploads       | AWS S3 console                                   |
+| `AWS_S3_BUCKET_NAME`                   | Bucket name for direct uploads                        | AWS S3 console                                   |
+| `AWS_ACCESS_KEY_ID`                    | IAM user access key, scoped to the upload bucket only | AWS IAM console                                  |
+| `AWS_SECRET_ACCESS_KEY`                | IAM user secret key                                   | AWS IAM console                                  |
 
 ## Project structure
 
