@@ -37,6 +37,61 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Import your saves from Instagram, TikTok and X
+
+**What:** On your own saves page — `instagram.com/<you>/saved/`, a TikTok
+profile's Favourites tab, `x.com/i/bookmarks` — the extension popup offers to
+import what is there. It scrolls to the end, collects the post links and the
+thumbnails the page has already rendered, and files them into a section named
+after the platform.
+
+**Why this had to be the extension:** there is no API route to this data.
+Instagram's Graph API does not expose saved posts at all, TikTok's does not
+expose favourites, and X's bookmarks endpoint needs OAuth user context on a paid
+tier. The data only exists inside the user's own logged-in session — which is
+exactly where the extension already runs.
+
+**Decisions worth not relitigating:**
+
+- **Matches link shapes, not post markup.** `/p/<id>`, `/video/<id>`,
+  `/status/<id>` have been stable for years; these sites' class names are
+  generated and change constantly. Per-platform DOM scraping was rejected twice
+  before and is still rejected.
+- **Links accumulate during the scroll, not after it.** These grids are
+  virtualised — items leave the DOM as they scroll out of view, so reading once
+  at the end would find almost nothing.
+- **The import runs in the service worker**, not the popup, so closing the popup
+  does not abandon it. The popup follows along by watching `chrome.storage`.
+- **No new permissions.** `<all_urls>` and the existing content script cover it,
+  so the locked permission list is unchanged.
+- Query strings are stripped from collected links — the same post is linked with
+  different tracking params in different places on these pages.
+
+**Touched:** `extension/src/lib/saves-page.js` (new),
+`extension/src/{content-script,background,popup}.js`, `extension/src/popup.html`,
+`app/api/import/route.ts` and `lib/items/item-service.ts` (import entries now
+carry a `thumbnailUrl`), `extension/README.md`.
+
+**Known limits, both written into the README:**
+
+- **Instagram and TikTok thumbnail URLs are signed and expire.** They look right
+  today and break within days or weeks. This is the strongest argument yet for
+  storing a copy rather than hotlinking.
+- These sites' terms prohibit automated collection even of your own content.
+  It runs in the user's own browser under their own session; that is a judgement
+  for the owner to make, not a technical question.
+
+**Verified:** 16 unit tests over detection and extraction, including
+virtualised-grid duplicates and nav links; the popup's offer, collecting and
+done-with-undo states rendered through a stubbed-`chrome` harness. **Not run
+against a live Instagram session** — that needs a real logged-in account.
+
+**Follow-ups:** X is the most aggressive about blocking automation and is the
+least likely of the three to keep working. No "select which saves to import" —
+it takes the whole page.
+
+---
+
 ## 2026-09-12 — Undo an import, and bulk select/delete
 
 **What:** An import can be undone — after a reload, not just while the tab is

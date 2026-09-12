@@ -32,6 +32,29 @@ for now. Change that constant before shipping.
 | a link         | Save link to Cielo  | the link target; the server scrapes its title and image       |
 | an image       | Save image to Cielo | the image itself, as its own thumbnail (`contentType: IMAGE`) |
 
+### Importing your saves from a platform
+
+Open your saves page while logged in — `instagram.com/<you>/saved/`, your TikTok
+profile with the Favourites tab showing, or `x.com/i/bookmarks` — then open the
+popup. It offers to import what is on that page: it scrolls to the end,
+collects the post links and the thumbnails the page has already rendered, and
+files them into a section named after the platform.
+
+This is the one thing only the extension can do. Instagram's API does not expose
+saved posts and TikTok's does not expose favourites; the data exists only inside
+your own logged-in session.
+
+Two caveats worth knowing:
+
+- **Instagram and TikTok thumbnail URLs are signed and expire.** They look right
+  today and will break in days or weeks. Storing a copy is the real fix.
+- These sites' terms prohibit automated collection, even of your own content.
+  This runs in your browser under your own session, but it is your call.
+
+Every import is undoable from the popup, and again from `/import` in the app.
+
+---
+
 Saves go to the section chosen in the popup's **Save to** picker; the default is
 General, which is the computed all-items view rather than a real section.
 

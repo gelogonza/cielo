@@ -39,6 +39,12 @@ export interface ImportEntry {
   folder: string | null;
   tags: string[];
   savedAt: string | null;
+  /**
+   * Only the extension can supply this — a logged-in saves page renders
+   * thumbnails the server has no way to fetch. Note these are signed CDN URLs
+   * on Instagram and TikTok and will expire; see docs/devlog.md.
+   */
+  thumbnailUrl?: string | null;
 }
 
 export interface ImportResult {
@@ -306,6 +312,7 @@ class ItemService {
           userId,
           url: entry.url,
           title: entry.title,
+          thumbnailUrl: entry.thumbnailUrl ?? null,
           contentType: "LINK" as const,
           sourceType: "WEB" as const,
           sourcePlatform: detectPlatform(entry.url),

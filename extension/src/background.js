@@ -127,10 +127,106 @@ async function setBadge(text, color) {
 }
 
 // Opening the popup is the user acknowledging the result, so clear the badge.
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, sender) => {
   if (message?.type === "POPUP_OPENED") {
     chrome.action.setBadgeText({ text: "" });
   }
 
+  if (message?.type === "COLLECT_PROGRESS") {
+    void chrome.storage.local.set({
+      savesImport: { state: "collecting", found: message.found },
+    });
+  }
+
+  if (message?.type === "IMPORT_SAVES") {
+    // Runs here rather than in the popup so closing the popup mid-import does
+    // not abandon it.
+    void importSaves(message.tabId ?? sender.tab?.id);
+  }
+
   return false;
 });
+
+/** Chunk size, matching the server's per-request ceiling. */
+const IMPORT_CHUNK = 200;
+
+/**
+ * Reads the saved posts off the page the user is looking at and files them.
+ *
+ * This is the one thing the extension can do that nothing else can: these
+ * pages have no API, and their contents only exist inside the user's own
+ * logged-in session.
+ */
+async function importSaves(tabId) {
+  const setState = (savesImport) => chrome.storage.local.set({ savesImport });
+
+  if (!tabId) {
+    await setState({ state: "error", message: "No page to read." });
+    return;
+  }
+
+  await setState({ state: "collecting", found: 0 });
+
+  const collected = await new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, { type: "COLLECT_SAVES" }, (response) => {
+      resolve(chrome.runtime.lastError ? null : response);
+    });
+  });
+
+  if (!collected?.ok) {
+    await setState({ state: "error", message: "That page is not a saves page." });
+    return;
+  }
+
+  if (collected.links.length === 0) {
+    await setState({ state: "error", message: "No saved posts found on that page." });
+    return;
+  }
+
+  const entries = collected.links.map((link) => ({
+    ...link,
+    folder: collected.section,
+    tags: [],
+    savedAt: null,
+  }));
+
+  const totals = { imported: 0, reused: 0, batchIds: [] };
+
+  for (let index = 0; index < entries.length; index += IMPORT_CHUNK) {
+    const chunk = entries.slice(index, index + IMPORT_CHUNK);
+
+    await setState({ state: "saving", done: index, total: entries.length });
+
+    let response;
+
+    try {
+      response = await fetch(`${API_BASE_URL}/api/import`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: chunk }),
+      });
+    } catch {
+      await setState({ state: "error", message: "Could not reach Cielo." });
+      return;
+    }
+
+    if (response.status === 401) {
+      await setState({ state: "error", message: "Log in to Cielo first." });
+      return;
+    }
+
+    if (!response.ok) {
+      await setState({ state: "error", message: `Import failed (${response.status}).` });
+      return;
+    }
+
+    const batch = await response.json();
+    totals.imported += batch.imported;
+    totals.reused += batch.reused;
+    totals.batchIds.push(batch.batchId);
+  }
+
+  await setState({ state: "done", ...totals, platform: collected.platform });
+  await setBadge("\u2713", "#95ff00");
+}

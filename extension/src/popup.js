@@ -2,6 +2,7 @@ import { API_BASE_URL } from "./lib/config.js";
 import { GENERAL, resolveDefaultSection } from "./lib/default-section.js";
 import { hasSessionCookie } from "./lib/has-session-cookie.js";
 import { resolvePopupState } from "./lib/popup-state.js";
+import { detectSavesPage } from "./lib/saves-page.js";
 
 const root = document.getElementById("root");
 
@@ -25,6 +26,102 @@ async function render() {
   }
 
   paint(state, stored.defaultSectionId ?? null);
+
+  if (state.kind !== "signed-out") {
+    void paintSavesImport(stored.savesImport ?? null);
+  }
+}
+
+/**
+ * The one thing only the extension can do: read the platform's own saves page
+ * from inside the user's logged-in session. Instagram and TikTok expose this
+ * data through no API at all.
+ */
+async function paintSavesImport(initial) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const config = tab?.url ? detectSavesPage(tab.url) : null;
+  const progress = initial;
+
+  // Show a finished or failed run even when the user has navigated away.
+  if (!config && !(progress && progress.state !== "idle")) {
+    return;
+  }
+
+  const panel = document.createElement("div");
+  panel.className = "saves";
+  root.appendChild(panel);
+
+  const render = (state) => {
+    panel.replaceChildren();
+
+    if (state?.state === "collecting") {
+      panel.append(text(`Reading your saves… ${state.found ?? 0} found`));
+      return;
+    }
+
+    if (state?.state === "saving") {
+      panel.append(text(`Saving ${state.done} of ${state.total}…`));
+      return;
+    }
+
+    if (state?.state === "error") {
+      panel.append(footnote(state.message, true));
+      return;
+    }
+
+    if (state?.state === "done") {
+      panel.append(
+        text(
+          `${state.imported} brought over${state.reused ? `, ${state.reused} already saved` : ""}.`,
+        ),
+      );
+
+      if (state.batchIds?.length) {
+        const undo = document.createElement("button");
+        undo.className = "link-button";
+        undo.textContent = "Undo this import";
+        undo.addEventListener("click", async () => {
+          undo.disabled = true;
+          undo.textContent = "Undoing…";
+
+          let removed = 0;
+          for (const batchId of state.batchIds) {
+            const response = await fetch(`${API_BASE_URL}/api/import/${batchId}`, {
+              method: "DELETE",
+              credentials: "include",
+            });
+            if (response.ok) removed += (await response.json()).itemsRemoved;
+          }
+
+          await chrome.storage.local.remove("savesImport");
+          panel.replaceChildren(text(`Undone — ${removed} removed.`));
+        });
+        panel.append(undo);
+      }
+
+      return;
+    }
+
+    const button = document.createElement("button");
+    button.className = "button";
+    button.textContent = `Import your ${config.label}`;
+    button.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ type: "IMPORT_SAVES", tabId: tab.id });
+      render({ state: "collecting", found: 0 });
+    });
+
+    panel.append(divider(), text(`You're on your ${config.label} page.`), button);
+  };
+
+  render(progress);
+
+  // The work runs in the service worker, so the popup follows along by
+  // watching storage rather than holding the process open.
+  chrome.storage.onChanged.addListener((changes) => {
+    if (changes.savesImport) {
+      render(changes.savesImport.newValue);
+    }
+  });
 }
 
 function paint(state, defaultSectionId) {

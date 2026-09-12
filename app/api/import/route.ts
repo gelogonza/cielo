@@ -13,6 +13,9 @@ const importSchema = z.object({
         url: z.string().trim().min(1),
         title: z.string().nullable().optional().default(null),
         folder: z.string().nullable().optional().default(null),
+        // Only the extension supplies this: a logged-in saves page renders
+        // thumbnails the server could never fetch.
+        thumbnailUrl: z.string().nullable().optional().default(null),
         tags: z.array(z.string()).optional().default([]),
         savedAt: z.iso.datetime().nullable().optional().default(null),
       }),
