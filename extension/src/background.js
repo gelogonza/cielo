@@ -1,34 +1,56 @@
 import { API_BASE_URL } from "./lib/config.js";
+import { SAVE_CONTEXTS, buildSavePayload } from "./lib/save-payload.js";
 
-const CONTEXT_MENU_ID = "save-to-cielo";
+const MENU_PREFIX = "save-to-cielo";
+
+// One menu item per context so the label can say what will actually be saved —
+// "Save image to Cielo" on an image is clearer than a generic page save.
+const MENU_ITEMS = [
+  { context: "page", title: "Save page to Cielo", contexts: ["page", "selection"] },
+  { context: "link", title: "Save link to Cielo", contexts: ["link"] },
+  { context: "image", title: "Save image to Cielo", contexts: ["image"] },
+];
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: CONTEXT_MENU_ID,
-    title: "Save to Cielo",
-    contexts: ["page"],
+  // removeAll first so an upgrade that changes the menu doesn't duplicate it.
+  chrome.contextMenus.removeAll(() => {
+    for (const item of MENU_ITEMS) {
+      chrome.contextMenus.create({
+        id: `${MENU_PREFIX}:${item.context}`,
+        title: item.title,
+        contexts: item.contexts,
+      });
+    }
   });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === CONTEXT_MENU_ID && tab?.id) {
-    handleSave(tab.id);
+  const [prefix, context] = String(info.menuItemId).split(":");
+
+  if (prefix === MENU_PREFIX && SAVE_CONTEXTS.includes(context)) {
+    handleSave(context, info, tab);
   }
 });
 
-async function handleSave(tabId) {
+async function handleSave(context, info, tab) {
+  await setBadge("…", "#9e9e9e");
+
   try {
-    const scrapeResult = await requestScrape(tabId);
+    // Only a page or image save needs the page's own metadata; a link save is
+    // resolved server-side, so don't pay for a scrape that would be discarded.
+    const metadata = context === "link" ? null : ((await requestScrape(tab?.id))?.metadata ?? null);
 
-    if (!scrapeResult?.ok) {
-      await recordSaveOutcome({ status: "error", message: "Couldn't read this page." });
-      return;
-    }
+    const { defaultSectionId } = await chrome.storage.local.get("defaultSectionId");
 
-    const { metadata } = scrapeResult;
+    const payload = buildSavePayload({
+      context,
+      info,
+      metadata,
+      defaultSectionId: defaultSectionId ?? null,
+    });
 
-    if (!metadata.url) {
-      await recordSaveOutcome({ status: "error", message: "No URL found to save." });
+    if (!payload) {
+      await recordSaveOutcome({ status: "error", message: "Nothing to save on this page." });
       return;
     }
 
@@ -36,15 +58,7 @@ async function handleSave(tabId) {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: metadata.url,
-        title: metadata.title,
-        thumbnailUrl: metadata.thumbnailUrl,
-        contentType: metadata.contentType,
-        sourcePlatform: metadata.sourcePlatform,
-        sectionIds: [],
-        tagNames: [],
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (response.status === 401) {
@@ -58,12 +72,16 @@ async function handleSave(tabId) {
     }
 
     const saved = await response.json();
+
     await recordSaveOutcome({
       status: "success",
       title: saved.title ?? saved.url,
+      thumbnailUrl: saved.thumbnailUrl ?? null,
+      sectionName: saved.sections?.[0]?.name ?? "General",
       reused: saved.reused,
     });
   } catch (error) {
+    // Most likely the web app is unreachable; the popup shows the message.
     await recordSaveOutcome({ status: "error", message: String(error) });
   }
 }
@@ -71,17 +89,45 @@ async function handleSave(tabId) {
 // Resolves null (rather than rejecting) when there's no content script to
 // answer — e.g. chrome:// pages, or a tab that hasn't finished loading.
 function requestScrape(tabId) {
+  if (!tabId) {
+    return Promise.resolve(null);
+  }
+
   return new Promise((resolve) => {
     chrome.tabs.sendMessage(tabId, { type: "SCRAPE_PAGE" }, (response) => {
       if (chrome.runtime.lastError) {
         resolve(null);
         return;
       }
-      resolve(response);
+      resolve(response?.ok ? response : null);
     });
   });
 }
 
 async function recordSaveOutcome(outcome) {
   await chrome.storage.local.set({ lastSaveOutcome: { ...outcome, at: Date.now() } });
+
+  // The popup is usually closed during a context-menu save, so the toolbar
+  // badge is the only feedback the user actually sees.
+  if (outcome.status === "success") {
+    await setBadge("✓", "#95ff00");
+  } else if (outcome.status === "signed_out") {
+    await setBadge("!", "#9e9e9e");
+  } else {
+    await setBadge("!", "#ff4d4d");
+  }
 }
+
+async function setBadge(text, color) {
+  await chrome.action.setBadgeText({ text });
+  await chrome.action.setBadgeBackgroundColor({ color });
+}
+
+// Opening the popup is the user acknowledging the result, so clear the badge.
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === "POPUP_OPENED") {
+    chrome.action.setBadgeText({ text: "" });
+  }
+
+  return false;
+});

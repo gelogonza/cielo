@@ -1,31 +1,184 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <title>Cielo</title>
     <style>
+      /* Mirrors the Cielo tokens in app/globals.css — the extension ships
+         standalone, so it cannot import them. Keep the two in step. */
+      :root {
+        --ink: #121212;
+        --surface: #212121;
+        --media: #292929;
+        --divider: #1a1a1a;
+        --text: #f5f5f5;
+        --muted: #9e9e9e;
+        --accent: #95ff00;
+        --accent-contrast: #212121;
+        --danger: #ff6b6b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
-        width: 240px;
+        width: 320px;
         margin: 0;
-        padding: 12px;
-        font-family: system-ui, sans-serif;
+        padding: 18px 20px 20px;
+        background: var(--surface);
+        color: var(--text);
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          system-ui,
+          sans-serif;
+        font-size: 14px;
+        line-height: 20px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      #root {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .header {
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 18px;
+      }
+
+      .body-text {
+        margin: 0;
+        font-size: 14px;
+        line-height: 20px;
+      }
+
+      .button {
+        display: flex;
+        height: 44px;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 50px;
+        background: var(--accent);
+        color: var(--accent-contrast);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .button:hover {
+        filter: brightness(0.95);
+      }
+
+      .divider {
+        height: 1px;
+        width: 100%;
+        background: var(--divider);
+      }
+
+      .section-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 50px;
+        background: var(--ink);
         font-size: 13px;
       }
-      p {
-        margin: 0 0 8px;
+
+      .section-row > label {
+        color: var(--muted);
       }
-      a.button {
-        display: inline-block;
-        padding: 6px 12px;
-        background: black;
-        color: white;
-        text-decoration: none;
+
+      /* Native select, restyled: keeps keyboard and screen-reader behaviour
+         while matching the design's right-aligned value. */
+      .section-row select {
+        max-width: 190px;
+        border: 0;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        text-align: right;
+        text-align-last: right;
+        cursor: pointer;
+        appearance: none;
+      }
+
+      .section-row select:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 4px;
         border-radius: 4px;
+      }
+
+      .saved-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px 12px 12px;
+        border-radius: 16px;
+        background: var(--ink);
+      }
+
+      .thumb {
+        flex: none;
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: var(--media);
+        object-fit: cover;
+      }
+
+      .meta {
+        display: flex;
+        min-width: 0;
+        flex: 1;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .meta-title {
+        overflow: hidden;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 17px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .meta-sub {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .footnote {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 17px;
+      }
+
+      .footnote.error {
+        color: var(--danger);
       }
     </style>
   </head>
   <body>
-    <div id="root">Loading…</div>
+    <div id="root" role="status" aria-live="polite">
+      <div class="header">Cielo</div>
+    </div>
     <script type="module" src="popup.js"></script>
   </body>
 </html>
