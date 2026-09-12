@@ -31,7 +31,7 @@
   --radius-row: 24px;
   --radius-card: 4px;
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
 }
 
 html {

@@ -37,6 +37,27 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Typeface switched to Satoshi
+
+**What:** The app now renders in Satoshi, self-hosted via `next/font/local`,
+replacing Inter. The `--font-sans` token is the only place the family is named.
+
+**Why:** Requested. Self-hosted rather than loaded from Fontshare's CDN because
+a webfont request to a third party is a request we do not control, and
+`docs/product-principles.md` means "no tracking" literally. It also removes a
+render-blocking dependency on someone else's uptime.
+
+**Touched:** `public/fonts/Satoshi-{400,500,700,900}.woff2` (from Fontshare,
+free licence), `app/layout.tsx`, `app/globals.css`.
+
+**Verified:** `document.fonts` reports the 400/500/700 faces loaded in the
+browser — not silently falling back to system sans.
+
+**Follow-ups:** 900 is bundled but unused; drop it if the weight never gets
+used. No italic faces.
+
+---
+
 ## 2026-09-12 — Save highlighted text as a quote
 
 **What:** Highlight text on any page, right-click → **Save selection to Cielo**,
