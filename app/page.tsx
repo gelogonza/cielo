@@ -27,11 +27,13 @@ const FEATURES = [
 /** Landing — Figma node 2:15, with a navbar in place of the search field. */
 export default function Home() {
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="relative flex flex-1 flex-col">
       <Splash />
+      {/* Scenery: sits above the page ground, below everything readable. */}
+      <div aria-hidden className="page-shimmer" />
       <LandingNav />
 
-      <main className="flex flex-1 flex-col items-center">
+      <main className="relative z-10 flex flex-1 flex-col items-center">
         {/* First screen is the wordmark alone; everything else is earned by
             scrolling. -mt-[88px]/pt-[88px] lets the wash sit behind the nav
             without the section being pushed below it. */}

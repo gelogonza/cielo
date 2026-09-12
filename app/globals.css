@@ -407,3 +407,52 @@ body {
     transform: translateX(56px) scale(0.96);
   }
 }
+
+/* Page shimmer — a slow white/silver band drifting across the ground, so the
+   page looks faintly lit rather than flat.
+ *
+ * Fixed and pointer-events:none, sitting at z-index 0 with the landing's
+ * content lifted to z-10 above it. It is scenery: it must never sit between
+ * a reader and the text.
+ */
+.page-shimmer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.page-shimmer::before {
+  content: "";
+  position: absolute;
+  /* Oversized so the diagonal band never shows its own ends. */
+  inset: -60%;
+  background: linear-gradient(
+    115deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.9) 46%,
+    rgba(202, 210, 221, 0.38) 50%,
+    rgba(255, 255, 255, 0.9) 54%,
+    transparent 62%
+  );
+  animation: page-shimmer 18s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes page-shimmer {
+  0%,
+  100% {
+    transform: translate3d(-24%, -16%, 0);
+  }
+  50% {
+    transform: translate3d(24%, 16%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-shimmer {
+    display: none;
+  }
+}

@@ -37,6 +37,33 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Page shimmer
+
+**What:** A slow white/silver band drifts diagonally across the landing's
+ground, so the page reads as faintly lit rather than flat. 18s, eased, at 70%
+opacity.
+
+**Why:** Requested. Kept "slight" — on a `#f7f7f8` ground the white half is
+nearly invisible and the silver half does the work, which is what makes it read
+as sheen instead of a moving stripe.
+
+**Decisions worth not relitigating:**
+
+- **Landing only.** A drifting highlight behind the library would be a
+  distraction while someone is actually working. Extending it is one class on
+  another page if that changes.
+- Sits at `z-index: 0` with the landing's `<main>` lifted to `z-10`, so it is
+  above the page ground and below everything readable — never between a reader
+  and the text. `pointer-events: none`, `aria-hidden`.
+- `prefers-reduced-motion` removes it (`display: none`).
+
+**Touched:** `app/globals.css`, `app/page.tsx`.
+
+**Verified:** the band's `translateX` measured moving (-724 → -739 over 1.5s),
+no overflow at 1440px.
+
+---
+
 ## 2026-09-12 — Hero glow and tagline
 
 **What:** The hero wash is now a real blurred radial glow in the accent green,
