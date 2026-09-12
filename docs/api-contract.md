@@ -183,8 +183,45 @@ export reports progress instead of hanging on one request.
 **Response `200`**
 
 ```json
-{ "imported": "number", "reused": "number", "sectionsCreated": "number" }
+{
+  "imported": "number",
+  "reused": "number",
+  "sectionsCreated": "number",
+  "batchId": "uuid — pass to DELETE /api/import/:batchId to undo this run"
+}
 ```
+
+---
+
+## DELETE /api/import/:batchId
+
+Undoes one import. Only rows that import **created** carry its batch id, so a
+bookmark that was already in the library is never removed. A section the import
+created is dropped only if it is now empty — if the user has since filed
+something into it by hand, it stays.
+
+**Response `200`**
+
+```json
+{ "itemsRemoved": "number", "sectionsRemoved": "number" }
+```
+
+---
+
+## DELETE /api/items
+
+Bulk delete, for the library's selection mode.
+
+```json
+// Request (1-500 ids)
+{ "ids": ["uuid", "..."] }
+
+// Response 200 — the count that actually matched this user
+{ "deleted": "number" }
+```
+
+Ids belonging to another user simply do not match rather than erroring, so
+`deleted` is the truthful count.
 
 ---
 

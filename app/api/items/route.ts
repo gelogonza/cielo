@@ -29,3 +29,26 @@ export const GET = withAuth(async (request, _context, user) => {
 
   return NextResponse.json({ items: items.map(serializeItem), nextCursor });
 });
+
+const bulkDeleteSchema = z.object({
+  ids: z.array(z.string()).min(1).max(500),
+});
+
+/**
+ * Bulk delete. A DELETE with a body is unusual but correct here: the operation
+ * is a deletion, and the alternative — hundreds of individual requests — is
+ * worse for both the client and the database.
+ */
+export const DELETE = withAuth(async (request, _context, user) => {
+  const body = bulkDeleteSchema.safeParse(await request.json());
+
+  if (!body.success) {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  // Scoped to the owner, so an id belonging to someone else simply does not
+  // match rather than erroring — the count reports what actually went.
+  const deleted = await itemService.removeMany(user.id, body.data.ids);
+
+  return NextResponse.json({ deleted });
+});

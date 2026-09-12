@@ -38,6 +38,9 @@ export function LibraryView({
   const [activeTagId, setActiveTagId] = useState<string | null>(null);
   const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [isSaveOpen, setIsSaveOpen] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -155,6 +158,42 @@ export function LibraryView({
     router.refresh();
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+    );
+  }
+
+  function leaveSelection() {
+    setIsSelecting(false);
+    setSelectedIds([]);
+  }
+
+  async function deleteSelected() {
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch("/api/items", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+
+      if (!response.ok) return;
+
+      const removed = new Set(selectedIds);
+      setItems((current) => current.filter((item) => !removed.has(item.id)));
+      leaveSelection();
+      router.refresh();
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   async function deleteItem(id: string) {
     const response = await fetch(`/api/items/${id}`, { method: "DELETE" });
     if (!response.ok) return;
@@ -174,6 +213,13 @@ export function LibraryView({
         </div>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => (isSelecting ? leaveSelection() : setIsSelecting(true))}
+            className="text-muted hover:text-primary-text h-11 rounded-full px-3 text-sm transition"
+          >
+            {isSelecting ? "Cancel" : "Select"}
+          </button>
           <SignOutButton />
 
           <button
@@ -212,7 +258,13 @@ export function LibraryView({
             >
               {items.map((item) => (
                 <div key={item.id} className="mb-3 sm:mb-5">
-                  <ItemCard item={item} onOpen={setOpenItemId} />
+                  <ItemCard
+                    item={item}
+                    onOpen={setOpenItemId}
+                    selectable={isSelecting}
+                    selected={selectedIds.includes(item.id)}
+                    onToggleSelect={toggleSelected}
+                  />
                 </div>
               ))}
 
@@ -228,6 +280,34 @@ export function LibraryView({
           <div ref={sentinelRef} aria-hidden className="h-px w-full" />
         </div>
       </div>
+
+      {/* Floating bar rather than a header row: it only exists while selecting,
+          and it stays reachable however far down the feed you are. */}
+      {isSelecting && (
+        <div
+          role="status"
+          className="border-line bg-surface fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border py-2 pr-2 pl-5 shadow-[0_8px_30px_rgba(18,18,18,0.12)]"
+        >
+          <span className="text-sm">
+            {selectedIds.length === 0 ? "Pick items to delete" : `${selectedIds.length} selected`}
+          </span>
+          <button
+            type="button"
+            onClick={leaveSelection}
+            className="text-muted hover:text-primary-text h-9 rounded-full px-3 text-sm transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={selectedIds.length === 0 || isDeleting}
+            onClick={() => void deleteSelected()}
+            className="h-9 rounded-full bg-red-600 px-4 text-sm font-medium text-white transition hover:brightness-95 disabled:opacity-40"
+          >
+            {isDeleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      )}
 
       {openItem && (
         <ItemDetailOverlay

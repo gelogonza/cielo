@@ -16,9 +16,16 @@ import { SourceBadge } from "./source-badge";
 export function ItemCard({
   item,
   onOpen,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
 }: {
   item: SerializedItem;
   onOpen?: (id: string) => void;
+  /** In selection mode a click picks the card instead of opening it. */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   const label = sourceLabel(item.url);
   // Set when the thumbnail cannot be shown full-bleed: it failed to load, or
@@ -28,8 +35,11 @@ export function ItemCard({
   return (
     <button
       type="button"
-      onClick={() => onOpen?.(item.id)}
-      className="group masonry-item bg-thumb border-line rounded-card relative block w-full overflow-hidden border text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+      onClick={() => (selectable ? onToggleSelect?.(item.id) : onOpen?.(item.id))}
+      aria-pressed={selectable ? selected : undefined}
+      className={`group masonry-item bg-thumb border-line rounded-card relative block w-full overflow-hidden border text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong ${
+        selected ? "ring-accent-strong ring-2 ring-offset-2" : ""
+      }`}
     >
       {item.body ? (
         <QuoteCard body={item.body} label={label} />
@@ -76,6 +86,19 @@ export function ItemCard({
       <span className="absolute top-3 left-3">
         <SourceBadge source={toSourcePlatform(item.sourcePlatform)} />
       </span>
+
+      {selectable && (
+        <span
+          aria-hidden
+          className={`absolute top-3 right-3 flex size-[22px] items-center justify-center rounded-full border text-[13px] font-semibold ${
+            selected
+              ? "bg-accent border-accent text-accent-contrast"
+              : "border-white/70 bg-black/40 text-transparent backdrop-blur-[6px]"
+          }`}
+        >
+          ✓
+        </span>
+      )}
     </button>
   );
 }

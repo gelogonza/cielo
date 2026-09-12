@@ -37,6 +37,46 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Undo an import, and bulk select/delete
+
+**What:** An import can be undone — after a reload, not just while the tab is
+open — and the library has a selection mode for deleting many items at once.
+
+**Why:** Import can add thousands of items in one click, and there was no way
+back except deleting them one at a time.
+
+**How undo stays safe:** `items.import_batch` and `sections.import_batch` are
+set **only on rows an import created**. A bookmark that was already in the
+library is left unstamped, so undo can never delete something that predates the
+import. A section the import created is dropped only if it is now empty — if
+the user has since filed something into it by hand, it stays.
+
+**Touched:** `prisma/manual-sql/007_import_batch.sql`, `prisma/schema.prisma`,
+`lib/items/item-service.ts` (`undoImport`, `removeMany`, batch stamping),
+`app/api/import/[batch]/route.ts` (new), `app/api/items/route.ts` (DELETE),
+`components/import/import-view.tsx`, `components/library/{item-card,library-view}.tsx`,
+`docs/api-contract.md`.
+
+**Decisions worth not relitigating:**
+
+- A large file imports in chunks, each its own batch, so the client keeps **all**
+  batch ids and undo reverses every one.
+- `DELETE /api/items` carries a body. Unusual, but the operation is a deletion
+  and the alternative is hundreds of requests.
+- Bulk delete is scoped to the owner in the `where`, so a stray id belonging to
+  someone else simply does not match — `deleted` is the truthful count.
+
+**Verified live:** a batch mixing one new url with one already saved imported
+`1 new / 1 reused`; undoing it removed **only the new one** and left the
+pre-existing bookmark intact. A clean batch's section was removed once empty,
+while a section still holding a hand-filed item was correctly kept. Bulk select
+took the library 16 → 14 and exited selection mode.
+
+**Follow-ups:** No undo for a bulk delete — that one really is gone. No
+"select all". Sections still cannot be renamed or deleted from the UI.
+
+---
+
 ## 2026-09-12 — Bulk import from other bookmark tools
 
 **What:** `/import` takes an export from Chrome, Safari, Firefox, Pocket,

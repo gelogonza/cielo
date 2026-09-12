@@ -13,13 +13,17 @@ type Stage =
   | { kind: "idle" }
   | { kind: "parsed"; fileName: string; result: ParseResult }
   | { kind: "importing"; done: number; total: number }
-  | { kind: "done"; imported: number; reused: number; sectionsCreated: number };
+  | { kind: "done"; imported: number; reused: number; sectionsCreated: number; batchId: string }
+  | { kind: "undone"; itemsRemoved: number };
 
 export function ImportView() {
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const [asSections, setAsSections] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  // A large file is imported in chunks, each its own batch — undo has to
+  // reverse all of them, not just the last.
+  const batchIds = useRef<string[]>([]);
 
   async function readFile(file: File) {
     setError(null);
@@ -39,13 +43,30 @@ export function ImportView() {
     }
   }
 
+  async function undoImport() {
+    setError(null);
+    let itemsRemoved = 0;
+
+    for (const batchId of batchIds.current) {
+      const response = await fetch(`/api/import/${batchId}`, { method: "DELETE" });
+
+      if (response.ok) {
+        itemsRemoved += (await response.json()).itemsRemoved;
+      }
+    }
+
+    batchIds.current = [];
+    setStage({ kind: "undone", itemsRemoved });
+  }
+
   async function runImport(result: ParseResult) {
+    batchIds.current = [];
     const entries = result.bookmarks.map((bookmark) => ({
       ...bookmark,
       folder: asSections ? bookmark.folder : null,
     }));
 
-    const totals = { imported: 0, reused: 0, sectionsCreated: 0 };
+    const totals = { imported: 0, reused: 0, sectionsCreated: 0, batchId: "" };
     setStage({ kind: "importing", done: 0, total: entries.length });
 
     for (let index = 0; index < entries.length; index += CHUNK) {
@@ -67,6 +88,12 @@ export function ImportView() {
       totals.imported += batch.imported;
       totals.reused += batch.reused;
       totals.sectionsCreated += batch.sectionsCreated;
+      // Every chunk gets its own batch; undo only needs to reach the last one
+      // if the run failed partway, so keep the first that created anything.
+      if (!totals.batchId && batch.imported > 0) {
+        totals.batchId = batch.batchId;
+      }
+      batchIds.current.push(batch.batchId);
 
       setStage({
         kind: "importing",
@@ -200,12 +227,40 @@ export function ImportView() {
             <code className="bg-ink rounded px-1.5 py-0.5">npm run backfill:thumbnails</code> to
             fetch them.
           </p>
-          <Link
-            href="/library"
-            className="bg-accent text-accent-contrast flex h-12 items-center justify-center rounded-full text-base font-medium"
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/library"
+              className="bg-accent text-accent-contrast flex h-12 items-center justify-center rounded-full text-base font-medium"
+            >
+              Open library
+            </Link>
+            {stage.imported > 0 && (
+              <button
+                type="button"
+                onClick={() => void undoImport()}
+                className="text-muted hover:text-primary-text h-11 text-sm transition"
+              >
+                Undo this import
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {stage.kind === "undone" && (
+        <div className="border-line bg-surface rounded-panel flex flex-col gap-4 border p-6">
+          <p className="text-lg font-medium">Import undone</p>
+          <p className="text-muted text-base leading-[24px]">
+            {stage.itemsRemoved.toLocaleString()} removed. Anything that was already in your library
+            before the import is untouched.
+          </p>
+          <button
+            type="button"
+            onClick={() => setStage({ kind: "idle" })}
+            className="border-line text-primary-text flex h-12 items-center justify-center rounded-full border text-base"
           >
-            Open library
-          </Link>
+            Import another file
+          </button>
         </div>
       )}
 

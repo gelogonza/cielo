@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import type { ContentType } from "@/lib/generated/prisma/client";
 import { detectPlatform } from "@/lib/items/platform";
@@ -45,6 +46,13 @@ export interface ImportResult {
   /** Already in the library — left untouched rather than duplicated. */
   reused: number;
   sectionsCreated: number;
+  /** Identifies everything this run created, so it can be undone. */
+  batchId: string;
+}
+
+export interface UndoImportResult {
+  itemsRemoved: number;
+  sectionsRemoved: number;
 }
 
 export interface SearchItemsInput {
@@ -255,8 +263,10 @@ class ItemService {
    * what `npm run backfill:thumbnails` is for.
    */
   async importMany(userId: string, entries: ImportEntry[]): Promise<ImportResult> {
+    const batchId = randomUUID();
+
     if (entries.length === 0) {
-      return { imported: 0, reused: 0, sectionsCreated: 0 };
+      return { imported: 0, reused: 0, sectionsCreated: 0, batchId };
     }
 
     // Later duplicates within one file lose to the first; unique(user_id, url)
@@ -273,6 +283,7 @@ class ItemService {
     const sectionIdByName = await this.resolveSectionsByName(
       userId,
       unique.map((entry) => entry.folder),
+      batchId,
     );
     const sectionsBefore = sectionIdByName.createdCount;
 
@@ -298,6 +309,7 @@ class ItemService {
           contentType: "LINK" as const,
           sourceType: "WEB" as const,
           sourcePlatform: detectPlatform(entry.url),
+          importBatch: batchId,
           // Keep the original save time so the feed's order reflects when the
           // user actually saved things, not when they migrated.
           ...(entry.savedAt ? { savedAt: new Date(entry.savedAt) } : {}),
@@ -349,11 +361,50 @@ class ItemService {
       imported: fresh.length,
       reused: unique.length - fresh.length,
       sectionsCreated: sectionsBefore,
+      batchId,
     };
   }
 
+  /**
+   * Reverses one import. Only rows that import created carry its batch id, so
+   * a bookmark that was already in the library is never touched — and a
+   * section it created is removed only if nothing is left in it, in case the
+   * user has since filed something there by hand.
+   */
+  async undoImport(userId: string, batchId: string): Promise<UndoImportResult> {
+    const { count: itemsRemoved } = await prisma.item.deleteMany({
+      where: { userId, importBatch: batchId },
+    });
+
+    const created = await prisma.section.findMany({
+      where: { userId, importBatch: batchId },
+      select: { id: true, _count: { select: { items: true } } },
+    });
+
+    const emptied = created.filter((section) => section._count.items === 0);
+
+    const { count: sectionsRemoved } = emptied.length
+      ? await prisma.section.deleteMany({ where: { id: { in: emptied.map((s) => s.id) } } })
+      : { count: 0 };
+
+    return { itemsRemoved, sectionsRemoved };
+  }
+
+  /** Bulk delete, scoped to the owner so stray ids cannot reach another user. */
+  async removeMany(userId: string, itemIds: string[]): Promise<number> {
+    if (itemIds.length === 0) {
+      return 0;
+    }
+
+    const { count } = await prisma.item.deleteMany({
+      where: { userId, id: { in: itemIds } },
+    });
+
+    return count;
+  }
+
   /** Find-or-create every folder name in one pass, returning name → id. */
-  private async resolveSectionsByName(userId: string, folders: (string | null)[]) {
+  private async resolveSectionsByName(userId: string, folders: (string | null)[], batchId: string) {
     const names = [...new Set(folders.filter((name): name is string => Boolean(name)))];
 
     if (names.length === 0) {
@@ -369,7 +420,7 @@ class ItemService {
 
     if (missing.length > 0) {
       await prisma.section.createMany({
-        data: missing.map((name) => ({ userId, name })),
+        data: missing.map((name) => ({ userId, name, importBatch: batchId })),
         skipDuplicates: true,
       });
     }
