@@ -37,6 +37,36 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Landing gets a floating navbar; search moves to the library
+
+**What:** The landing page's search field is replaced by a floating pill navbar
+— logo, How to / Features / About, Log in, Sign Up — and the page gained the
+three sections those links point at. The search field now renders only in the
+library, and is roughly half its old size there.
+
+**Why:** A search box on a signed-out landing page has nothing to search. The
+anchors point at real sections rather than dead links.
+
+**Touched:** `components/landing/landing-nav.tsx` (new), `app/page.tsx`,
+`components/library/search-field.tsx`. Auth screens untouched.
+
+**Decisions worth not relitigating:**
+
+- The nav scrolls horizontally rather than wrapping. A wrapped link makes the
+  pill two rows tall and pushes Sign Up off a 375px screen — which is exactly
+  what the first attempt did.
+- Landing copy for Features/About is drawn from `docs/product-principles.md`
+  rather than invented. **It is a first draft and should be rewritten** by
+  someone who wants to own the voice.
+
+**Verified:** at 1440px and 375px — nav single-row on mobile with Sign Up fully
+on screen and no page overflow; login unchanged apart from the new typeface.
+
+**Follow-ups:** The search field is still presentational — typing in it filters
+nothing. `GET /api/search` remains unimplemented.
+
+---
+
 ## 2026-09-12 — Typeface switched to Satoshi
 
 **What:** The app now renders in Satoshi, self-hosted via `next/font/local`,
