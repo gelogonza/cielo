@@ -8,21 +8,21 @@ interface Tile {
 }
 
 const topRow: Tile[] = [
-  { source: "tiktok", tint: "#262626", height: 132 },
-  { source: "instagram", tint: "#2e2e2e", height: 96 },
-  { source: "x", tint: "#1f1f1f", height: 148 },
-  { source: "web", tint: "#333333", height: 110 },
-  { source: "upload", tint: "#242424", height: 126 },
-  { source: "instagram", tint: "#292929", height: 92 },
+  { source: "tiktok", tint: "#e9e9eb", height: 132 },
+  { source: "instagram", tint: "#eeeef0", height: 96 },
+  { source: "x", tint: "#e4e4e7", height: 148 },
+  { source: "web", tint: "#f0f0f2", height: 110 },
+  { source: "upload", tint: "#e7e7ea", height: 126 },
+  { source: "instagram", tint: "#ececee", height: 92 },
 ];
 
 const bottomRow: Tile[] = [
-  { source: "web", tint: "#2b2b2b", height: 104 },
-  { source: "upload", tint: "#303030", height: 140 },
-  { source: "tiktok", tint: "#212121", height: 98 },
-  { source: "x", tint: "#363636", height: 134 },
-  { source: "web", tint: "#252525", height: 112 },
-  { source: "tiktok", tint: "#2f2f2f", height: 120 },
+  { source: "web", tint: "#ebebed", height: 104 },
+  { source: "upload", tint: "#efeff1", height: 140 },
+  { source: "tiktok", tint: "#e6e6e9", height: 98 },
+  { source: "x", tint: "#f1f1f3", height: 134 },
+  { source: "web", tint: "#e8e8ea", height: 112 },
+  { source: "tiktok", tint: "#ededef", height: 120 },
 ];
 
 /**
@@ -93,7 +93,7 @@ function Step({ children }: { children: React.ReactNode }) {
 
 function Arrow() {
   return (
-    <li aria-hidden className="text-accent">
+    <li aria-hidden className="text-accent-strong">
       →
     </li>
   );

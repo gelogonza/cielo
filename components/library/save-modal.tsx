@@ -93,7 +93,7 @@ export function SaveModal({
             onKeyDown={(event) => {
               if (event.key === "Enter") void save();
             }}
-            className="bg-ink text-secondary-text placeholder:text-muted h-16 w-full rounded-full px-[26px] text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+            className="bg-ink text-secondary-text placeholder:text-muted h-16 w-full rounded-full px-[26px] text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/70"
           />
         ) : (
           <p className="bg-ink text-muted flex h-16 w-full items-center rounded-full px-[26px] text-[15px]">
@@ -122,7 +122,7 @@ export function SaveModal({
           placeholder="Add tags, comma separated"
           value={tags}
           onChange={(event) => setTags(event.target.value)}
-          className="bg-ink text-secondary-text placeholder:text-muted h-14 w-full rounded-full px-[26px] text-base outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+          className="bg-ink text-secondary-text placeholder:text-muted h-14 w-full rounded-full px-[26px] text-base outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/70"
         />
 
         {error && (

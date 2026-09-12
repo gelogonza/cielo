@@ -37,6 +37,51 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Light theme, skeleton loaders, smaller nav and search
+
+**What:** The app now sits on a light ground. Added skeleton loaders (route-level
+for the library's first paint, inline for filter changes and paging). Shrank the
+search field again and the navbar's links and buttons.
+
+**Why:** Requested. **This reverses a rule I had written into `AGENTS.md` and
+`docs/product-principles.md` ("dark-only by design, do not add a light theme").
+That was my inference from the Figma, not a product decision — both files are
+corrected.**
+
+**What a light ground actually broke** (none of it was a simple inversion):
+
+- `muted` at `#9e9e9e` is **2.68:1** on white — fails AA. Darkened to `#6b6b70`
+  (5.30:1). Contrast was measured, not eyeballed.
+- The accent is **1.27:1** as text on white. `--color-accent` is now fills only;
+  `--color-accent-strong` (`#3f6e00`, 6.10:1) is its text/border/focus sibling.
+- "Selected" chips were `bg-white` — invisible on a light ground. Now `bg-accent`,
+  matching the sidebar's active row.
+- The logo is acid green on transparent and vanished on white. It now wears the
+  same dark disc it already had as a favicon and app icon.
+- Cards needed a hairline: a white-backed thumbnail has no edge against a white
+  page, which dark mode got for free from fill contrast.
+- The marquee's tints were hardcoded dark greys — twelve dark rectangles.
+
+**Touched:** `app/globals.css` (tokens), `app/library/loading.tsx` (new),
+`components/library/card-skeleton.tsx` (new), `components/brand/logo.tsx`,
+`components/landing/{landing-nav,process-marquee}.tsx`,
+`components/library/{item-card,library-view,search-field,sidebar}.tsx`,
+`components/ui/chip.tsx`, `components/auth/auth-card.tsx`,
+`extension/src/popup.html`, `AGENTS.md`, `docs/product-principles.md`.
+
+**Decisions worth not relitigating:**
+
+- Switching section now **clears the feed** before loading. Leaving the previous
+  section's items up while the sidebar already highlights the new one shows
+  content that does not belong to the active filter.
+- The extension popup keeps its own copy of the tokens (it ships standalone) and
+  was flipped to match. The two must be changed together.
+
+**Follow-ups:** No dark mode — this is a straight swap, not a theme toggle. If
+one is ever wanted, the tokens are the only place to branch.
+
+---
+
 ## 2026-09-12 — Landing gets a floating navbar; search moves to the library
 
 **What:** The landing page's search field is replaced by a floating pill navbar

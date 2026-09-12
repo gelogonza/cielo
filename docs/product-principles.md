@@ -36,6 +36,9 @@ user feel something about their own behaviour is the thing being banned.
   what you thought about it.
 - **Private by construction.** Every query is scoped to the session user at the
   service layer, not filtered in the UI.
+- **Light ground, acid accent.** The Figma was drawn dark and the app was built
+  that way first; it now sits on a light ground. The accent is unchanged, but it
+  is a fill colour — it is unreadable as text on white.
 
 ## Auto-classification — planned, not built
 

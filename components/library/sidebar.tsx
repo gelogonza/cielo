@@ -134,7 +134,7 @@ export function Sidebar({
             aria-pressed={activeTagId === tag.id}
             className={`shrink-0 rounded-full px-3.5 py-[7px] text-[13px] whitespace-nowrap transition ${
               activeTagId === tag.id
-                ? "bg-white text-accent-contrast"
+                ? "bg-accent text-accent-contrast"
                 : "bg-ink text-secondary-text hover:text-white"
             }`}
           >

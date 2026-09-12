@@ -113,7 +113,7 @@ export function ShareSaveForm({
         placeholder="Paste a link"
         value={url}
         onChange={(event) => setUrl(event.target.value)}
-        className="bg-ink text-secondary-text placeholder:text-muted h-16 w-full rounded-full px-6 text-base outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        className="bg-ink text-secondary-text placeholder:text-muted h-16 w-full rounded-full px-6 text-base outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/70"
       />
 
       {sections.length > 0 && (
@@ -146,7 +146,7 @@ export function ShareSaveForm({
         placeholder="Add tags, comma separated"
         value={tags}
         onChange={(event) => setTags(event.target.value)}
-        className="bg-ink text-secondary-text placeholder:text-muted h-14 w-full rounded-full px-6 text-base outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        className="bg-ink text-secondary-text placeholder:text-muted h-14 w-full rounded-full px-6 text-base outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/70"
       />
 
       {error && (

@@ -10,7 +10,7 @@ type ChipTone =
 
 const toneClasses: Record<ChipTone, string> = {
   filled: "bg-ink text-secondary-text",
-  selected: "bg-white text-accent-contrast",
+  selected: "bg-accent text-accent-contrast",
   outline: "border border-line text-muted",
 };
 

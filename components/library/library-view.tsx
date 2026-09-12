@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Logo } from "@/components/brand/logo";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import type { SerializedItem } from "@/lib/items/serialize";
+import { FeedSkeleton } from "./card-skeleton";
 import { ItemCard } from "./item-card";
 import { ItemDetailOverlay } from "./item-detail";
 import { SaveModal } from "./save-modal";
@@ -61,6 +62,11 @@ export function LibraryView({
       setActiveSectionId(sectionId);
       setActiveTagId(tagId);
       setIsLoading(true);
+      // Drop the previous section's items straight away: leaving them up while
+      // the new ones load shows content that does not belong to the filter the
+      // sidebar is already highlighting.
+      setItems([]);
+      setCursor(null);
 
       try {
         const response = await fetch(`/api/items?${buildQuery({ sectionId, tagId })}`);
@@ -181,12 +187,22 @@ export function LibraryView({
               Nothing saved here yet. Use the Save button, or the Cielo extension on any page.
             </p>
           ) : (
-            <div className="columns-2 gap-3 [column-fill:balance] sm:gap-5 lg:columns-3 xl:columns-4">
+            <div
+              aria-busy={isLoading}
+              className="columns-2 gap-3 [column-fill:balance] sm:gap-5 lg:columns-3 xl:columns-4"
+            >
               {items.map((item) => (
                 <div key={item.id} className="mb-3 sm:mb-5">
                   <ItemCard item={item} onOpen={setOpenItemId} />
                 </div>
               ))}
+
+              {/* Switching section clears the feed, so the skeletons stand in
+                  for the whole grid; paging keeps the results already shown
+                  and only hints at what is arriving. */}
+              {isLoading && (
+                <FeedSkeleton count={items.length === 0 ? 12 : 4} offset={items.length} />
+              )}
             </div>
           )}
 

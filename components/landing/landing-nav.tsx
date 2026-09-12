@@ -15,8 +15,8 @@ const LINKS = [
 export function LandingNav() {
   return (
     <div className="sticky top-4 z-40 px-4 sm:top-5 sm:px-6">
-      <header className="border-line bg-surface/70 mx-auto flex w-full max-w-[1100px] items-center gap-3 rounded-full border p-2 pr-3 backdrop-blur-xl sm:gap-4 sm:pr-4">
-        <Logo className="size-10 sm:size-14" />
+      <header className="border-line bg-surface/80 mx-auto flex w-full max-w-[980px] items-center gap-2 rounded-full border p-1.5 pr-2 backdrop-blur-xl sm:gap-3 sm:pr-3">
+        <Logo className="size-9 sm:size-11" />
 
         {/* Scrolls rather than wraps on a narrow phone — a wrapped link would
             make the pill two rows tall and push Sign Up off the edge. */}
@@ -28,7 +28,7 @@ export function LandingNav() {
             <a
               key={link.href}
               href={link.href}
-              className="text-muted hover:text-primary-text hover:bg-ink shrink-0 rounded-full px-2.5 py-2 text-[13px] whitespace-nowrap transition sm:px-4 sm:text-base"
+              className="text-muted hover:text-primary-text hover:bg-ink shrink-0 rounded-full px-2.5 py-1.5 text-[13px] whitespace-nowrap transition sm:px-3.5 sm:text-sm"
             >
               {link.label}
             </a>
@@ -38,13 +38,13 @@ export function LandingNav() {
         <div className="flex shrink-0 items-center gap-2">
           <Link
             href="/login"
-            className="text-muted hover:text-primary-text hidden h-11 items-center justify-center rounded-full px-4 text-base transition sm:flex"
+            className="text-muted hover:text-primary-text hidden h-9 items-center justify-center rounded-full px-3.5 text-sm transition sm:flex"
           >
             Log in
           </Link>
           <Link
             href="/signup"
-            className="bg-accent text-accent-contrast flex h-10 shrink-0 items-center justify-center rounded-full px-4 text-[13px] font-medium whitespace-nowrap transition hover:brightness-95 sm:h-11 sm:px-6 sm:text-base"
+            className="bg-accent text-accent-contrast flex h-9 shrink-0 items-center justify-center rounded-full px-4 text-[13px] font-medium whitespace-nowrap transition hover:brightness-95 sm:px-5 sm:text-sm"
           >
             Sign Up
           </Link>

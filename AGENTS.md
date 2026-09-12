@@ -88,7 +88,10 @@ Commit only when the work is verified. Do not push unless asked.
 - **Sections are user-named**, and "General" is a computed view over every item,
   not a stored section. AI auto-classification is a **wanted future feature,
   deliberately not in the MVP** — when built it must suggest, never overwrite.
-- The app is **dark-only by design**. Do not add a light theme.
+- The app renders on a **light ground**. Design tokens are the only place
+  colours live — `--color-accent` is for FILLS only; use `--color-accent-strong`
+  for anything drawn as text, an icon, or a border, because the acid green is
+  1.27:1 on white. Check contrast when adding a colour; do not eyeball it.
 - Design tokens live in `app/globals.css` as a Tailwind v4 `@theme` block. Use
   the tokens, not raw hex.
 - Every protected route wraps itself in `withAuth` (`lib/auth/with-auth.ts`).

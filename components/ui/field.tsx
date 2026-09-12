@@ -7,7 +7,7 @@ import type { ComponentProps } from "react";
 export function Field({ className = "", ...props }: ComponentProps<"input">) {
   return (
     <input
-      className={`bg-ink text-secondary-text placeholder:text-muted h-16 w-full rounded-full px-7 text-lg outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${className}`}
+      className={`bg-ink text-secondary-text placeholder:text-muted h-16 w-full rounded-full px-7 text-lg outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/70 ${className}`}
       {...props}
     />
   );

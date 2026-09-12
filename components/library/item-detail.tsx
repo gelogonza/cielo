@@ -63,7 +63,7 @@ export function ItemDetailOverlay({
           {item.body ? (
             // A highlight is the content, not an illustration of it.
             <blockquote className="flex size-full flex-col justify-center gap-4 overflow-auto p-10">
-              <span aria-hidden className="text-accent text-4xl leading-none">
+              <span aria-hidden className="text-accent-strong text-4xl leading-none">
                 &ldquo;
               </span>
               <p className="text-secondary-text text-xl leading-[30px]">{item.body}</p>
@@ -234,7 +234,7 @@ function NoteField({ itemId, initialBody }: { itemId: string; initialBody: strin
         onChange={(event) => setBody(event.target.value)}
         onBlur={() => void persist()}
         placeholder="Add a note"
-        className="bg-ink text-secondary-text placeholder:text-muted rounded-field h-24 w-full resize-none px-[18px] py-4 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        className="bg-ink text-secondary-text placeholder:text-muted rounded-field h-24 w-full resize-none px-[18px] py-4 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/70"
       />
     </div>
   );

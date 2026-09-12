@@ -59,7 +59,7 @@ export function Logo({
       href={href}
       onClick={handleClick}
       aria-label="Cielo — back to home"
-      className={`group inline-block shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent ${className}`}
+      className={`group inline-block shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-strong ${className}`}
     >
       <span
         className={`block size-full transition-transform duration-300 ease-out group-hover:-translate-y-0.5 group-hover:rotate-6 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none ${
@@ -67,14 +67,16 @@ export function Logo({
         }`}
         onAnimationEnd={() => setIsSpinning(false)}
       >
-        <Image
-          src="/brand/cielo-mark.svg"
-          alt=""
-          width={MARK_WIDTH}
-          height={MARK_HEIGHT}
-          priority
-          className="block size-full -rotate-[160.69deg]"
-        />
+        <span className="bg-brand-ground flex size-full items-center justify-center rounded-full p-[16%]">
+          <Image
+            src="/brand/cielo-mark.svg"
+            alt=""
+            width={MARK_WIDTH}
+            height={MARK_HEIGHT}
+            priority
+            className="block size-full -rotate-[160.69deg]"
+          />
+        </span>
       </span>
     </a>
   );

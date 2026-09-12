@@ -29,7 +29,7 @@ export function ItemCard({
     <button
       type="button"
       onClick={() => onOpen?.(item.id)}
-      className="group masonry-item bg-thumb rounded-card relative block w-full overflow-hidden text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      className="group masonry-item bg-thumb border-line rounded-card relative block w-full overflow-hidden border text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
     >
       {item.body ? (
         <QuoteCard body={item.body} label={label} />
@@ -130,7 +130,7 @@ function TextCard({
 function QuoteCard({ body, label }: { body: string; label: string | null }) {
   return (
     <span className="bg-surface flex w-full flex-col gap-4 p-5">
-      <span aria-hidden className="text-accent -mb-2 text-2xl leading-none">
+      <span aria-hidden className="text-accent-strong -mb-2 text-2xl leading-none">
         &ldquo;
       </span>
       <span className="text-secondary-text line-clamp-[12] text-[15px] leading-[22px]">{body}</span>
