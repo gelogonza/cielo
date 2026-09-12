@@ -37,6 +37,43 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Save a highlight from the web app
+
+**What:** The save dialog has a **Quote** tab: paste or write text, optionally
+name where it came from. Previously a highlight could only be captured by the
+extension.
+
+**Why:** The notes half of "saves and the notes on them" had no entry point in
+the app itself.
+
+**The model change:** `/api/save` now accepts `url: null` **when contentType is
+TEXT** — a thought you write down need not come from anywhere. Postgres treats
+a null url as distinct under `unique(user_id, url)`, so sourceless quotes never
+collide with each other; `saveLink` skips the dedup lookup entirely when there
+is no url, and stores them as `sourceType: DIRECT`.
+
+**Touched:** `components/library/save-modal.tsx`, `app/api/save/route.ts`,
+`lib/items/item-service.ts`, `docs/api-contract.md`, tests.
+
+**Regression caught by an existing test:** making `url` optional broke the
+contract's 400-vs-422 split — Zod stops before object-level refinements once a
+field fails, so a missing url alongside an invalid contentType looked
+contentType-only and answered 422. The handler now checks the raw body for that
+case. The test that caught it was pinning documented behaviour, not an
+implementation detail.
+
+**Also worth remembering:** the new tests initially "passed the wrong way" — a
+`describe` block without its own `beforeEach` inherits mock call counts from
+the block above, so `not.toHaveBeenCalled()` assertions were meaningless.
+
+**Verified live:** a sourceless quote saved with `url: null`,
+`sourceType: DIRECT`; two of them got distinct ids.
+
+**Follow-ups:** Quote cards still clamp at 12 lines in the feed — opening the
+item shows the whole thing, which seems right for a grid.
+
+---
+
 ## 2026-09-12 — Pinterest saves get real titles
 
 **What:** An image save now takes its title from the **right-clicked image's own

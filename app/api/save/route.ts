@@ -6,28 +6,46 @@ import { itemService } from "@/lib/items/item-service";
 const CONTENT_TYPES = ["LINK", "IMAGE", "VIDEO", "CAROUSEL", "TEXT"] as const;
 const SOURCE_PLATFORMS = ["tiktok", "instagram", "x", "web"] as const;
 
-const saveLinkSchema = z.object({
-  url: z.string().trim().min(1),
-  title: z.string().nullable().optional().default(null),
-  // The captured text of a highlight (contentType TEXT).
-  body: z.string().trim().min(1).nullable().optional().default(null),
-  thumbnailUrl: z.string().nullable().optional().default(null),
-  contentType: z.enum(CONTENT_TYPES),
-  sourcePlatform: z.enum(SOURCE_PLATFORMS).nullable().optional().default(null),
-  sectionIds: z.array(z.string()).optional().default([]),
-  tagNames: z.array(z.string()).optional().default([]),
-});
+const saveLinkSchema = z
+  .object({
+    // Nullable so a highlight can be saved without a source page; every other
+    // kind of save still needs one.
+    url: z.string().trim().min(1).nullable().optional().default(null),
+    title: z.string().nullable().optional().default(null),
+    // The captured text of a highlight (contentType TEXT).
+    body: z.string().trim().min(1).nullable().optional().default(null),
+    thumbnailUrl: z.string().nullable().optional().default(null),
+    contentType: z.enum(CONTENT_TYPES),
+    sourcePlatform: z.enum(SOURCE_PLATFORMS).nullable().optional().default(null),
+    sectionIds: z.array(z.string()).optional().default([]),
+    tagNames: z.array(z.string()).optional().default([]),
+  })
+  .refine((value) => Boolean(value.url) || value.contentType === "TEXT", {
+    message: "url is required unless contentType is TEXT",
+    path: ["url"],
+  })
+  .refine((value) => value.contentType !== "TEXT" || Boolean(value.body), {
+    message: "body is required when contentType is TEXT",
+    path: ["body"],
+  });
 
 export const POST = withAuth(async (request, _context, user) => {
-  const body = saveLinkSchema.safeParse(await request.json());
+  const raw = await request.json();
+  const body = saveLinkSchema.safeParse(raw);
 
   if (!body.success) {
     // api-contract.md distinguishes 400 (missing url) from 422 (invalid
     // contentType) — 422 only when contentType is the sole problem.
     const isContentTypeOnly = body.error.issues.every((issue) => issue.path[0] === "contentType");
+
+    // Zod skips the object-level refinements once a field fails, so a missing
+    // url alongside a bad contentType would otherwise look contentType-only
+    // and answer 422. A missing url is a 400 either way.
+    const urlMissing = !raw?.url && raw?.contentType !== "TEXT";
+
     return NextResponse.json(
       { error: "Invalid request body" },
-      { status: isContentTypeOnly ? 422 : 400 },
+      { status: isContentTypeOnly && !urlMissing ? 422 : 400 },
     );
   }
 

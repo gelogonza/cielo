@@ -17,7 +17,9 @@ export function SaveModal({
   onClose: () => void;
   onSaved: (item: SerializedItem) => void;
 }) {
-  const [tab, setTab] = useState<"link" | "upload">("link");
+  const [tab, setTab] = useState<"link" | "quote" | "upload">("link");
+  const [quote, setQuote] = useState("");
+  const [quoteSource, setQuoteSource] = useState("");
   const [url, setUrl] = useState("");
   const [tags, setTags] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -30,9 +32,60 @@ export function SaveModal({
     );
   }
 
-  async function save() {
+  function tagNames() {
+    return tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+  }
+
+  /** The body for whichever tab is open, or null if it is not ready to save. */
+  function buildBody() {
+    if (tab === "quote") {
+      const text = quote.trim();
+      const source = quoteSource.trim();
+
+      if (!text) {
+        setError("Write or paste the text you want to keep.");
+        return null;
+      }
+
+      return {
+        // A quote needs no source; Postgres treats a null url as distinct, so
+        // each sourceless quote stays its own item.
+        url: source ? source : null,
+        title: null,
+        body: text,
+        thumbnailUrl: null,
+        contentType: "TEXT",
+        sourcePlatform: source ? detectPlatform(source) : null,
+        sectionIds: selected,
+        tagNames: tagNames(),
+      };
+    }
+
     if (!url.trim()) {
       setError("Paste a link to save.");
+      return null;
+    }
+
+    return {
+      url: url.trim(),
+      // The server scrapes og:title/og:image when these are null.
+      title: null,
+      body: null,
+      thumbnailUrl: null,
+      contentType: "LINK",
+      sourcePlatform: detectPlatform(url),
+      sectionIds: selected,
+      tagNames: tagNames(),
+    };
+  }
+
+  async function save() {
+    const payload = buildBody();
+
+    if (!payload) {
       return;
     }
 
@@ -43,23 +96,15 @@ export function SaveModal({
       const response = await fetch("/api/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: url.trim(),
-          // The server scrapes og:title/og:image when these are null.
-          title: null,
-          thumbnailUrl: null,
-          contentType: "LINK",
-          sourcePlatform: detectPlatform(url),
-          sectionIds: selected,
-          tagNames: tags
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter(Boolean),
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        setError("That link could not be saved. Check it and try again.");
+        setError(
+          tab === "quote"
+            ? "That quote could not be saved. Try again."
+            : "That link could not be saved. Check it and try again.",
+        );
         return;
       }
 
@@ -78,6 +123,9 @@ export function SaveModal({
           <TabButton active={tab === "link"} onClick={() => setTab("link")}>
             Paste link
           </TabButton>
+          <TabButton active={tab === "quote"} onClick={() => setTab("quote")}>
+            Quote
+          </TabButton>
           <TabButton active={tab === "upload"} onClick={() => setTab("upload")}>
             Upload
           </TabButton>
@@ -95,6 +143,25 @@ export function SaveModal({
             }}
             className="bg-ink text-secondary-text placeholder:text-muted h-16 w-full rounded-full px-[26px] text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/70"
           />
+        ) : tab === "quote" ? (
+          <div className="flex flex-col gap-3">
+            <textarea
+              aria-label="Quote"
+              placeholder="Paste or write the text you want to keep"
+              value={quote}
+              onChange={(event) => setQuote(event.target.value)}
+              rows={5}
+              className="bg-ink text-secondary-text placeholder:text-muted rounded-field w-full resize-none px-[22px] py-4 text-[15px] leading-[22px] outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/70"
+            />
+            <input
+              type="url"
+              aria-label="Source link (optional)"
+              placeholder="Where it came from (optional)"
+              value={quoteSource}
+              onChange={(event) => setQuoteSource(event.target.value)}
+              className="bg-ink text-secondary-text placeholder:text-muted h-12 w-full rounded-full px-[22px] text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/70"
+            />
+          </div>
         ) : (
           <p className="bg-ink text-muted flex h-16 w-full items-center rounded-full px-[26px] text-[15px]">
             Direct upload needs /api/save-image — not built yet.

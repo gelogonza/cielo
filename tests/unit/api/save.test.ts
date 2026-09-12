@@ -119,3 +119,54 @@ describe("POST /api/save", () => {
     expect(saveLink).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/save — highlights", () => {
+  beforeEach(() => {
+    // Without its own reset this block inherits call counts from the tests
+    // above, and the "never called" assertions pass or fail by accident.
+    saveLink.mockReset();
+    saveLink.mockResolvedValue({ item: savedItem, reused: false });
+  });
+
+  it("accepts a quote with no source url", async () => {
+    // A highlight saved from the web app need not come from anywhere.
+    const response = await POST(
+      request({
+        url: null,
+        body: "Remember everything. Organize nothing.",
+        contentType: "TEXT",
+      }),
+      {},
+    );
+
+    expect(response.status).toBe(201);
+    expect(saveLink).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ url: null, contentType: "TEXT" }),
+    );
+  });
+
+  it("rejects a non-TEXT save with no url", async () => {
+    const response = await POST(request({ url: null, contentType: "LINK" }), {});
+
+    expect(response.status).toBe(400);
+    expect(saveLink).not.toHaveBeenCalled();
+  });
+
+  it("rejects a TEXT save with no body — there would be nothing to keep", async () => {
+    const response = await POST(
+      request({ url: "https://example.com/p", contentType: "TEXT", body: null }),
+      {},
+    );
+
+    expect(response.status).toBe(400);
+    expect(saveLink).not.toHaveBeenCalled();
+  });
+
+  it("still answers 400 when the url is missing and contentType is invalid", async () => {
+    // Zod stops before the object refinements here, so this is checked directly.
+    const response = await POST(request({ url: null, contentType: "NOPE" }), {});
+
+    expect(response.status).toBe(400);
+  });
+});

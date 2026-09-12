@@ -24,6 +24,12 @@ Used by: extension (Tier 1 rich scrape, Tier 2 fallback) and web app (Tier 2 man
 }
 ```
 
+- `url` may be **null when `contentType` is `TEXT`** — a highlight written or
+  pasted in the web app need not come from anywhere. Every other kind of save
+  still requires it (`400` otherwise). A `TEXT` save with no `body` is a `400`.
+  A sourceless quote is stored with `sourceType: DIRECT`; because Postgres
+  treats a null url as distinct under `unique(user_id, url)`, each one is its
+  own item rather than colliding.
 - `body` carries the captured text of a highlight and is only set when
   `contentType` is `TEXT`. The extension sends the page's own URL with a
   `#:~:text=` fragment naming the quote, so multiple highlights from one page

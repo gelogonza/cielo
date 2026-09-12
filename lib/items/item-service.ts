@@ -4,7 +4,8 @@ import { scrapeUrl } from "@/lib/scrape/scrape-url";
 import { tagService } from "@/lib/tags/tag-service";
 
 export interface SaveLinkInput {
-  url: string;
+  /** Null only for a highlight saved without a source page. */
+  url: string | null;
   title: string | null;
   /** The captured text of a highlight; null for every other kind of save. */
   body?: string | null;
@@ -55,9 +56,13 @@ async function loadWithRelations(itemId: string) {
 
 class ItemService {
   async saveLink(userId: string, input: SaveLinkInput): Promise<SaveLinkResult> {
-    const existing = await prisma.item.findUnique({
-      where: { unique_user_url: { userId, url: input.url } },
-    });
+    // A quote with no source has no url to dedup on, and Postgres treats NULL
+    // as distinct under unique(user_id, url) — so each one is its own item.
+    const existing = input.url
+      ? await prisma.item.findUnique({
+          where: { unique_user_url: { userId, url: input.url } },
+        })
+      : null;
 
     const itemId = existing ? existing.id : await this.createItem(userId, input);
 
@@ -71,7 +76,7 @@ class ItemService {
 
     // A highlight carries its own words and is rendered as a quote, so there
     // is nothing a scrape could add — skip the round-trip.
-    if (!thumbnailUrl && input.contentType !== "TEXT") {
+    if (input.url && !thumbnailUrl && input.contentType !== "TEXT") {
       const scraped = await scrapeUrl(input.url);
       title = title ?? scraped?.title ?? null;
       thumbnailUrl = thumbnailUrl ?? scraped?.thumbnailUrl ?? null;
@@ -85,7 +90,8 @@ class ItemService {
         body: input.body ?? null,
         thumbnailUrl,
         contentType: input.contentType,
-        sourceType: "WEB",
+        // Nothing was fetched from the web for a sourceless quote.
+        sourceType: input.url ? "WEB" : "DIRECT",
         sourcePlatform: input.sourcePlatform,
       },
     });
