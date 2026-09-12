@@ -37,6 +37,37 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Search bar: animated ring and typed placeholder
+
+**What:** The library's search field gained a slow glint travelling around its
+hairline border, and a placeholder that types and deletes example searches
+("graphic design", "ocean", "windows xp", …).
+
+**Why:** Requested, and it hints at what the field is for while it is still
+empty. Deliberately muted: a 7s rotation and an accent mixed 40% into the line
+colour, not a bright chase.
+
+**Touched:** `components/library/search-field.tsx`, `app/globals.css`.
+
+**Decisions worth not relitigating:**
+
+- `aria-label` stays `"Search anything"` while the visible placeholder changes,
+  so a screen reader never has the field's accessible name shift mid-sentence.
+- Both animations **stop permanently** on first focus or input. Resuming a demo
+  while someone is composing their own query would be maddening.
+- The ring's rotation needs `@property` to interpolate an angle. Browsers
+  without it render the gradient's first frame, which is an ordinary border —
+  so the fallback is the previous design, not a broken one.
+- `prefers-reduced-motion` drops both: static border, static "Search anything".
+
+**Verified:** in the browser — placeholder observed mid-word, ring animation
+`running`, both held after a real `focusin`.
+
+**Follow-ups:** Still presentational. Typing in it filters nothing;
+`GET /api/search` remains unimplemented.
+
+---
+
 ## 2026-09-12 — Logo: light-ground lockup instead of a dark disc
 
 **What:** Removed the dark disc added behind the logo in the light-theme commit.
