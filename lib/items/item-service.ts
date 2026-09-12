@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { ContentType } from "@/lib/generated/prisma/client";
+import { detectPlatform } from "@/lib/items/platform";
 import { scrapeUrl } from "@/lib/scrape/scrape-url";
 import { tagService } from "@/lib/tags/tag-service";
 
@@ -28,6 +29,22 @@ export interface ListItemsInput {
   /** ISO savedAt of the last item on the previous page. */
   cursor?: string;
   limit?: number;
+}
+
+export interface ImportEntry {
+  url: string;
+  title: string | null;
+  /** Folder from the export; becomes a section of the same name. */
+  folder: string | null;
+  tags: string[];
+  savedAt: string | null;
+}
+
+export interface ImportResult {
+  imported: number;
+  /** Already in the library — left untouched rather than duplicated. */
+  reused: number;
+  sectionsCreated: number;
 }
 
 export interface SearchItemsInput {
@@ -224,6 +241,169 @@ class ItemService {
       items: rows,
       nextCursor: hasMore ? rows[rows.length - 1].savedAt.toISOString() : null,
     };
+  }
+
+  /**
+   * Bulk import from an exported bookmark file.
+   *
+   * Set-based on purpose: a per-item round trip would take minutes on a real
+   * export of a few thousand bookmarks. Each batch resolves its sections and
+   * tags once, then writes items and join rows with createMany.
+   *
+   * Nothing is scraped — thousands of fetches would be slow and rude to the
+   * sites involved. Imported items land with no thumbnail, which is exactly
+   * what `npm run backfill:thumbnails` is for.
+   */
+  async importMany(userId: string, entries: ImportEntry[]): Promise<ImportResult> {
+    if (entries.length === 0) {
+      return { imported: 0, reused: 0, sectionsCreated: 0 };
+    }
+
+    // Later duplicates within one file lose to the first; unique(user_id, url)
+    // would reject them anyway.
+    const byUrl = new Map<string, ImportEntry>();
+    for (const entry of entries) {
+      if (!byUrl.has(entry.url)) {
+        byUrl.set(entry.url, entry);
+      }
+    }
+    const unique = [...byUrl.values()];
+    const urls = [...byUrl.keys()];
+
+    const sectionIdByName = await this.resolveSectionsByName(
+      userId,
+      unique.map((entry) => entry.folder),
+    );
+    const sectionsBefore = sectionIdByName.createdCount;
+
+    const tagIdByName = await this.resolveTagsByName(
+      userId,
+      unique.flatMap((entry) => entry.tags),
+    );
+
+    const existing = await prisma.item.findMany({
+      where: { userId, url: { in: urls } },
+      select: { id: true, url: true },
+    });
+    const existingUrls = new Set(existing.map((item) => item.url));
+
+    const fresh = unique.filter((entry) => !existingUrls.has(entry.url));
+
+    if (fresh.length > 0) {
+      await prisma.item.createMany({
+        data: fresh.map((entry) => ({
+          userId,
+          url: entry.url,
+          title: entry.title,
+          contentType: "LINK" as const,
+          sourceType: "WEB" as const,
+          sourcePlatform: detectPlatform(entry.url),
+          // Keep the original save time so the feed's order reflects when the
+          // user actually saved things, not when they migrated.
+          ...(entry.savedAt ? { savedAt: new Date(entry.savedAt) } : {}),
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // Read ids back for the whole batch — createMany does not return them.
+    const saved = await prisma.item.findMany({
+      where: { userId, url: { in: urls } },
+      select: { id: true, url: true },
+    });
+    const idByUrl = new Map(saved.map((item) => [item.url, item.id]));
+
+    const sectionLinks: { itemId: string; sectionId: string }[] = [];
+    const tagLinks: { itemId: string; tagId: string }[] = [];
+
+    for (const entry of unique) {
+      const itemId = idByUrl.get(entry.url);
+
+      if (!itemId) {
+        continue;
+      }
+
+      const sectionId = entry.folder ? sectionIdByName.ids.get(entry.folder) : undefined;
+
+      if (sectionId) {
+        sectionLinks.push({ itemId, sectionId });
+      }
+
+      for (const tag of entry.tags) {
+        const tagId = tagIdByName.get(tag);
+        if (tagId) {
+          tagLinks.push({ itemId, tagId });
+        }
+      }
+    }
+
+    if (sectionLinks.length > 0) {
+      await prisma.itemSection.createMany({ data: sectionLinks, skipDuplicates: true });
+    }
+
+    if (tagLinks.length > 0) {
+      await prisma.itemTag.createMany({ data: tagLinks, skipDuplicates: true });
+    }
+
+    return {
+      imported: fresh.length,
+      reused: unique.length - fresh.length,
+      sectionsCreated: sectionsBefore,
+    };
+  }
+
+  /** Find-or-create every folder name in one pass, returning name → id. */
+  private async resolveSectionsByName(userId: string, folders: (string | null)[]) {
+    const names = [...new Set(folders.filter((name): name is string => Boolean(name)))];
+
+    if (names.length === 0) {
+      return { ids: new Map<string, string>(), createdCount: 0 };
+    }
+
+    const existing = await prisma.section.findMany({
+      where: { userId, name: { in: names } },
+      select: { id: true, name: true },
+    });
+    const existingNames = new Set(existing.map((section) => section.name));
+    const missing = names.filter((name) => !existingNames.has(name));
+
+    if (missing.length > 0) {
+      await prisma.section.createMany({
+        data: missing.map((name) => ({ userId, name })),
+        skipDuplicates: true,
+      });
+    }
+
+    const all = await prisma.section.findMany({
+      where: { userId, name: { in: names } },
+      select: { id: true, name: true },
+    });
+
+    return {
+      ids: new Map(all.map((section) => [section.name, section.id])),
+      createdCount: missing.length,
+    };
+  }
+
+  /** Same shape for tags, which have a unique(userId, name) to lean on. */
+  private async resolveTagsByName(userId: string, tagNames: string[]) {
+    const names = [...new Set(tagNames.map((name) => name.trim()).filter(Boolean))];
+
+    if (names.length === 0) {
+      return new Map<string, string>();
+    }
+
+    await prisma.tag.createMany({
+      data: names.map((name) => ({ userId, name })),
+      skipDuplicates: true,
+    });
+
+    const all = await prisma.tag.findMany({
+      where: { userId, name: { in: names } },
+      select: { id: true, name: true },
+    });
+
+    return new Map(all.map((tag) => [tag.name, tag.id]));
   }
 
   /** Total item count for the computed "General" view. */

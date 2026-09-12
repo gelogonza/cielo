@@ -123,6 +123,13 @@ export function Sidebar({
         </div>
       </div>
 
+      <a
+        href="/import"
+        className="text-muted hover:text-primary-text rounded-row mt-2 hidden h-[38px] shrink-0 items-center px-[18px] text-sm transition lg:flex"
+      >
+        Import bookmarks
+      </a>
+
       <p className="text-muted mt-4 text-xs font-medium tracking-[1px] lg:mt-6 lg:pt-1">TAGS</p>
 
       <div className="-mx-1 mt-2.5 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:flex-wrap lg:overflow-x-visible lg:px-0 lg:pb-0">

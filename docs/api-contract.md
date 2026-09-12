@@ -151,6 +151,43 @@ Used by: web app feed (masonry, infinite scroll, newest-first).
 
 ---
 
+## POST /api/import
+
+Bulk import from an exported bookmark file. The file is parsed **in the
+browser** — it never reaches the server — and posted in chunks so a large
+export reports progress instead of hanging on one request.
+
+**Request** (max 500 entries per call)
+
+```json
+{
+  "entries": [
+    {
+      "url": "https://are.na/block/1",
+      "title": "string | null",
+      "folder": "string | null",
+      "tags": ["string", "..."],
+      "savedAt": "ISO 8601 datetime | null"
+    }
+  ]
+}
+```
+
+- `folder` becomes a section of the same name, created if it does not exist.
+- `savedAt` is preserved, so the feed's order reflects when things were
+  originally saved rather than when they were migrated.
+- Existing urls are left untouched rather than duplicated or overwritten.
+- Imported items are **not scraped** — they arrive with no thumbnail, which is
+  what `npm run backfill:thumbnails` fills in afterwards.
+
+**Response `200`**
+
+```json
+{ "imported": "number", "reused": "number", "sectionsCreated": "number" }
+```
+
+---
+
 ## GET /api/search
 
 **Implemented.** Postgres full-text search over `items.search_vector` (title +

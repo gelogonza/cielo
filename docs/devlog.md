@@ -37,6 +37,54 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Bulk import from other bookmark tools
+
+**What:** `/import` takes an export from Chrome, Safari, Firefox, Pocket,
+Raindrop or Instapaper and brings the whole library over — folders become
+sections, tags carry across, original save dates are preserved. Linked from the
+library sidebar.
+
+**Why:** An empty library is the main reason a tool like this gets abandoned.
+Everyone already has hundreds of bookmarks somewhere, and this is also what
+makes search and (later) classification worth anything.
+
+**Decisions worth not relitigating:**
+
+- **The file is parsed in the browser**, not uploaded. The preview is instant,
+  nothing leaves the machine until the user confirms, and the upload can be
+  chunked with real progress instead of one long hanging request.
+- **Two formats cover nearly everything.** Netscape bookmark HTML is what
+  Chrome, Safari, Firefox, Edge, Pocket _and_ Instapaper all emit; CSV covers
+  Raindrop. CSV columns are matched by **header name**, since nobody agrees on
+  order.
+- Netscape HTML is famously malformed (unclosed `<DT>`, stray `<p>`), so it goes
+  through a real HTML parser rather than regex.
+- The export's own `Bookmarks bar` / `Bookmarks menu` wrapper is **not** treated
+  as a folder — it describes the export, not something the user made.
+- `importMany` is **set-based**: one resolve pass for sections and tags, then
+  `createMany` for items and join rows. A per-item round trip would take minutes
+  on a few thousand bookmarks.
+- **Nothing is scraped on import** — thousands of fetches would be slow and rude
+  to the sites involved. Imported items arrive with no thumbnail, which is
+  exactly what `npm run backfill:thumbnails` already exists for.
+- `javascript:` bookmarklets and Firefox `place:` smart folders are skipped, and
+  the count is shown so the preview stays honest.
+
+**Touched:** `lib/import/parse-bookmarks.ts`, `app/api/import/route.ts`,
+`app/import/page.tsx`, `components/import/import-view.tsx` (all new),
+`lib/items/item-service.ts` (`importMany`), `components/library/sidebar.tsx`,
+`docs/api-contract.md`.
+
+**Verified live:** a Chrome-shaped export imported 4 bookmarks into 2 sections,
+skipped 1 bookmarklet, preserved tags, and kept the original 2020 `ADD_DATE`
+timestamps rather than stamping today. Re-running returned
+`imported: 0, reused: 4` — importing twice does not duplicate.
+
+**Follow-ups:** No Are.na import (needs their API and an OAuth token). No undo
+for an import; deleting items one by one is the only way back.
+
+---
+
 ## 2026-09-12 — Save a highlight from the web app
 
 **What:** The save dialog has a **Quote** tab: paste or write text, optionally
