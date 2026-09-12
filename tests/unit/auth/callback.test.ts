@@ -32,6 +32,25 @@ describe("GET /auth/callback", () => {
     expect(response.headers.get("location")).toContain("/library");
   });
 
+  it("refuses an off-origin next, which is concatenated onto the origin", async () => {
+    // The reset-password flow puts a caller-supplied `next` through here.
+    const response = await callback("?code=abc123&next=https://evil.test/steal");
+
+    expect(response.headers.get("location")).toBe("http://localhost/library");
+  });
+
+  it("refuses a protocol-relative next", async () => {
+    const response = await callback("?code=abc123&next=//evil.test");
+
+    expect(response.headers.get("location")).toBe("http://localhost/library");
+  });
+
+  it("sends a password reset on to the page that sets the new one", async () => {
+    const response = await callback("?code=abc123&next=%2Freset-password");
+
+    expect(response.headers.get("location")).toBe("http://localhost/reset-password");
+  });
+
   it("bounces back to login when no code came back", async () => {
     const response = await callback("");
 

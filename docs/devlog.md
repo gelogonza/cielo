@@ -37,6 +37,40 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Password reset
+
+**What:** `/forgot-password` emails a reset link; `/reset-password` sets the new
+password. Linked from the login form. Also routed `/auth/callback`'s `next`
+through `safeNext`.
+
+**Why:** Without it a forgotten password locked someone out of their library
+permanently — the last genuine hole in auth.
+
+**How it hangs together:** the emailed link points at `/auth/callback`, which
+already exchanges a code for a session, then forwards to `/reset-password`.
+**There is no token in the reset page** — the session _is_ the authorisation,
+so the page just calls `updateUser({ password })`. That reuses the OAuth
+callback rather than adding a second token-handling path.
+
+**Touched:** `app/forgot-password/page.tsx`, `app/reset-password/page.tsx` (both
+new), `components/auth/login-form.tsx`, `app/auth/callback/route.ts`,
+`tests/unit/auth/callback.test.ts`.
+
+**Security note:** the callback pasted `next` straight onto the origin. The
+reset flow makes that parameter attacker-reachable, so it now goes through the
+same `safeNext` guard the login form uses, with tests for an absolute URL and a
+protocol-relative one.
+
+**Verified against live Supabase:** requesting a reset issued a real recovery
+token (`recovery_sent_at` and `recovery_token` set on `auth.users`); the
+mismatch guard fired; a matching pair changed the password; and signing out and
+logging back in **with the new password** worked.
+
+**Follow-ups:** No rate limiting of our own on the request form — Supabase
+throttles, but a deployed app should not rely only on that.
+
+---
+
 ## 2026-09-12 — Page shimmer
 
 **What:** A slow white/silver band drifts diagonally across the landing's

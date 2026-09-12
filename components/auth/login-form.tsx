@@ -77,7 +77,7 @@ export function LoginForm() {
         </div>
 
         {error && (
-          <p role="alert" className="text-center text-sm text-red-400">
+          <p role="alert" className="text-center text-sm text-red-600">
             {error}
           </p>
         )}
@@ -85,6 +85,10 @@ export function LoginForm() {
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Logging in..." : "Log in"}
         </Button>
+
+        <Link href="/forgot-password" className="text-muted -mt-3 text-center text-sm">
+          Forgot your password?
+        </Link>
       </form>
 
       <p className="text-muted text-center text-base">or</p>
