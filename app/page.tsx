@@ -38,7 +38,7 @@ export default function Home() {
         {/* overflow-x-clip so the wash's blur cannot widen the page. Safe to
             clip here: nothing inside uses a view() timeline. */}
         <section className="hero-wash relative isolate -mt-[88px] flex min-h-svh w-full flex-col items-center justify-center overflow-x-clip px-5 pt-[88px] text-center">
-          <h1 className="text-[26vw] leading-[0.85] font-medium tracking-[-0.04em] sm:text-[22vw] lg:text-[18vw]">
+          <h1 className="text-[21vw] leading-[0.85] font-medium tracking-[-0.04em] sm:text-[17vw] lg:text-[13vw]">
             Cielo
           </h1>
           <p className="text-muted mt-6 text-xl leading-[1.3] text-balance sm:mt-8 sm:text-2xl">

@@ -65,8 +65,15 @@ twice; the section keeps the descriptive copy and the CTAs.
   the collage entry for why that distinction matters.
 - `h1` stays "Cielo" and the tagline is a `p`.
 
-**Verified:** computed `top: 512px` (centred), `blur(64px)`, no overflow at
-1440px or 375px.
+**Positioning, after trying both:** the glow sits **high, bleeding up behind the
+navbar** — it reads as light entering the page from above. Centring it on the
+wordmark was tried and rejected: it turned into a backdrop for the text rather
+than atmosphere.
+
+**Wordmark size:** `13vw` at lg (187px at 1440), down from `18vw`.
+
+**Verified:** computed wash `top: -143px`, `blur(72px)`, `h1` 187px desktop /
+79px mobile, no overflow at 1440px or 375px.
 
 ---
 
