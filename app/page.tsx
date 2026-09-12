@@ -35,17 +35,19 @@ export default function Home() {
         {/* First screen is the wordmark alone; everything else is earned by
             scrolling. -mt-[88px]/pt-[88px] lets the wash sit behind the nav
             without the section being pushed below it. */}
-        <section className="hero-wash relative isolate -mt-[88px] flex min-h-svh w-full items-center justify-center px-5 pt-[88px] text-center">
+        {/* overflow-x-clip so the wash's blur cannot widen the page. Safe to
+            clip here: nothing inside uses a view() timeline. */}
+        <section className="hero-wash relative isolate -mt-[88px] flex min-h-svh w-full flex-col items-center justify-center overflow-x-clip px-5 pt-[88px] text-center">
           <h1 className="text-[26vw] leading-[0.85] font-medium tracking-[-0.04em] sm:text-[22vw] lg:text-[18vw]">
             Cielo
           </h1>
+          <p className="text-muted mt-6 text-xl leading-[1.3] text-balance sm:mt-8 sm:text-2xl">
+            Save everything all to one place
+          </p>
         </section>
 
         <section className="reveal flex flex-col items-center gap-7 px-5 pb-14 text-center sm:px-6">
-          <p className="max-w-[640px] text-3xl leading-[1.15] font-medium text-balance sm:text-4xl">
-            All your bookmarks in one place
-          </p>
-          <p className="text-muted max-w-[540px] text-lg leading-[26px] text-balance">
+          <p className="text-primary-text max-w-[620px] text-2xl leading-[1.25] font-medium text-balance sm:text-3xl">
             Save anything from anywhere — a page, an image, a video, a line you highlighted — into
             one private library you organise yourself.
           </p>

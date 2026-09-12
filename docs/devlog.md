@@ -37,6 +37,39 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Hero glow and tagline
+
+**What:** The hero wash is now a real blurred radial glow in the accent green,
+centred behind the wordmark, with "Save everything all to one place" beneath it.
+
+**Why:** Requested. The previous wash was a soft gradient with no `filter`, so
+it read as a faint tint rather than a glow.
+
+**The bug worth remembering:** the first attempt appeared not to change
+anything. There were **two `.hero-wash::before` rules** in `globals.css` — an
+earlier edit inserted the new block but left the original further down the file,
+and the later rule won. Computed `top` came back as `-204px` when the source
+said `50%`, which is what gave it away. When a CSS change seems to do nothing,
+read the _computed_ value before re-editing the source.
+
+**Also:** the revealed section's "All your bookmarks in one place" is gone. With
+the hero carrying its own tagline, the two lines were saying the same thing
+twice; the section keeps the descriptive copy and the CTAs.
+
+**Touched:** `app/globals.css`, `app/page.tsx`.
+
+**Decisions worth not relitigating:**
+
+- The hero is `overflow-x-clip` so a 64px blur cannot widen the page. Safe here
+  specifically because nothing inside the hero uses a `view()` timeline — see
+  the collage entry for why that distinction matters.
+- `h1` stays "Cielo" and the tagline is a `p`.
+
+**Verified:** computed `top: 512px` (centred), `blur(64px)`, no overflow at
+1440px or 375px.
+
+---
+
 ## 2026-09-12 — Wordmark-only hero and scroll-driven reveals
 
 **What:** The first screen is now just "Cielo" filling the viewport. Everything

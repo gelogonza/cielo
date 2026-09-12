@@ -204,23 +204,95 @@ body {
   mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
 }
 
-/* A single soft acid wash behind the hero — the only place the accent appears
-   as a large area, kept faint so text over it stays at full contrast. */
+/* Radial acid glow behind the hero. A real blur filter on a radial gradient,
+   not just a soft gradient stop — it is what gives the edge its haze.
+   Sits at z-index -1 under an `isolate` parent so it never covers text. */
 .hero-wash::before {
   content: "";
   position: absolute;
-  inset: -20% 0 auto 50%;
-  translate: -50% 0;
+  /* Centred on the wordmark rather than floating above it. */
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
   /* Never wider than its section, or it extends the page's scroll width. */
-  width: min(1100px, 100%);
-  aspect-ratio: 2 / 1;
+  width: min(1150px, 96%);
+  aspect-ratio: 16 / 9;
   background: radial-gradient(
-    ellipse at center,
-    color-mix(in oklab, var(--color-accent) 22%, transparent) 0%,
-    transparent 70%
+    closest-side,
+    color-mix(in oklab, var(--color-accent) 85%, transparent) 0%,
+    color-mix(in oklab, var(--color-accent) 45%, transparent) 40%,
+    transparent 78%
   );
+  filter: blur(64px);
+  opacity: 0.9;
   pointer-events: none;
   z-index: -1;
+}
+
+/* Skeleton placeholders — a slow pulse rather than a sweeping gradient, which
+   stays calm when a dozen cards animate at once. */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animate-skeleton {
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-skeleton {
+    animation: none;
+  }
+}
+
+/* Animated search ring — a slow glint travelling around a hairline border.
+   @property is what makes the angle interpolate; browsers without it simply
+   render the gradient's first frame, which is a plain border. */
+@property --search-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.search-ring {
+  background: conic-gradient(
+    from var(--search-angle),
+    var(--color-line) 0%,
+    color-mix(in oklab, var(--color-accent-strong) 40%, var(--color-line)) 8%,
+    var(--color-line) 20%,
+    var(--color-line) 100%
+  );
+  animation: search-ring-spin 7s linear infinite;
+}
+
+@keyframes search-ring-spin {
+  to {
+    --search-angle: 360deg;
+  }
+}
+
+/* The glint is decoration; it stops once the field is actually in use. */
+.search-ring:focus-within {
+  animation-play-state: paused;
+  background: color-mix(in oklab, var(--color-accent-strong) 35%, var(--color-line));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-ring {
+    animation: none;
+    background: var(--color-line);
+  }
+}
+
+/* The collage is scenery: it dissolves into the page rather than ending. */
+.collage-fade {
+  mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
 }
 
 /* Landing splash — mark spins in, wordmark rises, the panel clears itself.
