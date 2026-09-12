@@ -91,13 +91,13 @@ async function handleSave(context, info, tab) {
 
 // Resolves null (rather than rejecting) when there's no content script to
 // answer — e.g. chrome:// pages, or a tab that hasn't finished loading.
-function requestScrape(tabId) {
+function requestScrape(tabId, srcUrl) {
   if (!tabId) {
     return Promise.resolve(null);
   }
 
   return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tabId, { type: "SCRAPE_PAGE" }, (response) => {
+    chrome.tabs.sendMessage(tabId, { type: "SCRAPE_PAGE", srcUrl }, (response) => {
       if (chrome.runtime.lastError) {
         resolve(null);
         return;

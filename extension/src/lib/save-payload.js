@@ -25,6 +25,7 @@ export const SAVE_CONTEXTS = ["page", "link", "image", "selection"];
  * @property {string | null} [thumbnailUrl]
  * @property {string} [contentType]
  * @property {string} [sourcePlatform]
+ * @property {string | null} [siteName]
  *
  * @param {object} input
  * @param {string} input.context One of SAVE_CONTEXTS.
@@ -32,6 +33,7 @@ export const SAVE_CONTEXTS = ["page", "link", "image", "selection"];
  * @param {PageMetadata | null} [input.metadata]
  * @param {string | null} [input.defaultSectionId]
  * @param {string | null} [input.selectionText] Full selection, read from the page.
+ * @param {string | null} [input.imageAlt] Description of the right-clicked image.
  */
 export function buildSavePayload({
   context,
@@ -39,6 +41,7 @@ export function buildSavePayload({
   metadata = null,
   defaultSectionId = null,
   selectionText = null,
+  imageAlt = null,
 }) {
   const sectionIds = defaultSectionId ? [defaultSectionId] : [];
 
@@ -87,8 +90,10 @@ export function buildSavePayload({
   if (context === "image") {
     return info.srcUrl
       ? {
+          // The image's own alt beats the page title: on a feed every image
+          // shares one title, and sites like Pinterest make that just the brand.
+          title: imageAlt ?? usefulTitle(metadata),
           url: info.srcUrl,
-          title: metadata?.title ?? null,
           thumbnailUrl: info.srcUrl,
           contentType: "IMAGE",
           sourcePlatform: platformOf(info.pageUrl ?? info.srcUrl),
@@ -104,7 +109,7 @@ export function buildSavePayload({
 
   return {
     url: metadata.url,
-    title: metadata.title ?? null,
+    title: usefulTitle(metadata),
     thumbnailUrl: metadata.thumbnailUrl ?? null,
     contentType: metadata.contentType ?? "LINK",
     sourcePlatform: metadata.sourcePlatform ?? "web",
@@ -128,6 +133,24 @@ function platformOf(url) {
   } catch {
     return "web";
   }
+}
+
+/**
+ * Drops a "title" that is only the site's own name. Pinterest answers
+ * `og:title: "Pinterest"` on every feed and pin page, and storing that is worse
+ * than storing nothing — the card then shows the domain, which is at least true.
+ *
+ * @param {PageMetadata | null} metadata
+ */
+function usefulTitle(metadata) {
+  const title = metadata?.title?.trim();
+
+  if (!title) {
+    return null;
+  }
+
+  const siteName = metadata?.siteName?.trim();
+  return siteName && title.toLowerCase() === siteName.toLowerCase() ? null : title;
 }
 
 /** Longest quote embedded whole in a fragment before switching to start,end. */

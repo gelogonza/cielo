@@ -14,10 +14,29 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Read here rather than trusting info.selectionText, which Chrome
     // truncates — a saved quote should be the whole highlight.
     const selectionText = window.getSelection()?.toString() ?? "";
-    sendResponse({ ok: true, metadata, selectionText });
+    // An image's own alt text describes it far better than the page title —
+    // on a feed page every image shares one useless title.
+    const imageAlt = message.srcUrl ? findImageDescription(message.srcUrl) : null;
+    sendResponse({ ok: true, metadata, selectionText, imageAlt });
   } catch (error) {
     sendResponse({ ok: false, error: String(error) });
   }
 
   return false;
 });
+
+/**
+ * The alt (or title) of the image the user right-clicked, matched by source.
+ *
+ * @param {string} srcUrl
+ */
+function findImageDescription(srcUrl) {
+  for (const image of Array.from(document.images)) {
+    if (image.currentSrc === srcUrl || image.src === srcUrl) {
+      const description = (image.alt || image.title || "").trim();
+      return description || null;
+    }
+  }
+
+  return null;
+}

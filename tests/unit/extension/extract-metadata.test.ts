@@ -34,6 +34,7 @@ describe("extractMetadata", () => {
     const result = extractMetadata(doc, "example.com", "https://example.com/post?x=1");
 
     expect(result).toEqual({
+      siteName: null,
       title: "A great article",
       thumbnailUrl: "https://example.com/cover.jpg",
       contentType: "LINK",
@@ -129,6 +130,7 @@ describe("extractMetadata", () => {
     const doc = docFrom(`<html><head></head></html>`);
 
     expect(extractMetadata(doc, "example.com")).toEqual({
+      siteName: null,
       title: null,
       thumbnailUrl: null,
       contentType: "LINK",

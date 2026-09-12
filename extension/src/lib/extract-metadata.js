@@ -78,6 +78,9 @@ export function extractMetadata(doc, hostname, pageUrl = null) {
   const thumbnailCandidate = images[0] ?? largestContentImage(doc) ?? iconHref(doc) ?? null;
 
   return {
+    // og:site_name lets the caller notice a "title" that is only the brand —
+    // Pinterest serves `og:title: "Pinterest"` on every feed and pin page.
+    siteName: metaContents(doc, "og:site_name")[0] ?? null,
     title: title || null,
     thumbnailUrl: toAbsolute(thumbnailCandidate, pageUrl ?? url),
     contentType,

@@ -214,3 +214,76 @@ describe("buildHighlightUrl", () => {
     expect(decodeURIComponent(start).endsWith("alpha")).toBe(true);
   });
 });
+
+describe("buildSavePayload — useless titles", () => {
+  // Pinterest answers og:title "Pinterest" on every feed and pin page, so an
+  // image save inherited the brand as its title.
+  const pinterest = {
+    url: "https://www.pinterest.com/homefeed/",
+    title: "Pinterest",
+    siteName: "Pinterest",
+    thumbnailUrl: null,
+    contentType: "LINK",
+    sourcePlatform: "web",
+  };
+
+  it("prefers the right-clicked image's alt over the page title", () => {
+    const payload = buildSavePayload({
+      context: "image",
+      info: { srcUrl: "https://i.pinimg.com/a.png", pageUrl: "https://www.pinterest.com/" },
+      metadata: pinterest,
+      imageAlt: "Brutalist concrete stair",
+    });
+
+    expect(payload?.title).toBe("Brutalist concrete stair");
+  });
+
+  it("drops a title that is only the site's own name", () => {
+    const payload = buildSavePayload({
+      context: "image",
+      info: { srcUrl: "https://i.pinimg.com/a.png" },
+      metadata: pinterest,
+    });
+
+    // Null shows the domain on the card, which is at least true.
+    expect(payload?.title).toBeNull();
+  });
+
+  it("ignores case when comparing title to site name", () => {
+    expect(
+      buildSavePayload({
+        context: "page",
+        metadata: { ...pinterest, title: "PINTEREST" },
+      })?.title,
+    ).toBeNull();
+  });
+
+  it("keeps a real title from the same site", () => {
+    expect(
+      buildSavePayload({
+        context: "page",
+        metadata: { ...pinterest, title: "Pin on From X/Twitter" },
+      })?.title,
+    ).toBe("Pin on From X/Twitter");
+  });
+
+  it("keeps the page title when a site name was never published", () => {
+    expect(
+      buildSavePayload({
+        context: "page",
+        metadata: { ...pinterest, siteName: null, title: "Pinterest" },
+      })?.title,
+    ).toBe("Pinterest");
+  });
+
+  it("falls back to the page title for an image with no alt", () => {
+    expect(
+      buildSavePayload({
+        context: "image",
+        info: { srcUrl: "https://cdn.test/a.png" },
+        metadata: { ...pinterest, title: "A real article", siteName: "Some Blog" },
+        imageAlt: null,
+      })?.title,
+    ).toBe("A real article");
+  });
+});

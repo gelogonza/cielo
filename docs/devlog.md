@@ -37,6 +37,36 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Pinterest saves get real titles
+
+**What:** An image save now takes its title from the **right-clicked image's own
+`alt`**, and any title that is merely the site's own name is dropped.
+
+**Why:** Every Pinterest save came back titled "Pinterest". Pinterest answers
+`og:title: "Pinterest"` on its feed and pin pages, so an image save inherited
+the brand — and on a feed page _every_ image would have shared that one title
+anyway. The thumbnails were always correct; only the titles were wrong.
+
+**Kept general on purpose:** no Pinterest special-casing. An image's `alt`
+describes that image better than the page title on any site, and `og:site_name`
+is a published, standard way to recognise a brand-only title. Per-platform DOM
+scraping was rejected earlier as brittle and still is.
+
+A dropped title is stored as `null`, which shows the domain on the card — worse
+than a real title, better than a false one.
+
+**Touched:** `extension/src/content-script.js` (resolves the clicked image by
+src), `extension/src/background.js` (passes `srcUrl` through),
+`extension/src/lib/{extract-metadata,save-payload}.js`, tests.
+
+**Also:** backfilled the four existing "Pinterest"-titled rows to `null`.
+
+**Follow-ups:** A page save of a Pinterest _feed_ still gets their generic share
+image as its thumbnail. Nothing general fixes that — the site publishes it
+deliberately for logged-out scrapers.
+
+---
+
 ## 2026-09-12 — Password reset
 
 **What:** `/forgot-password` emails a reset link; `/reset-password` sets the new
