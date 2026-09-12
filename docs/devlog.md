@@ -37,6 +37,38 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Landing rebuilt; logo back to the exact accent green
+
+**What:** New landing composition — editorial hero with a soft accent wash and
+two CTAs, then a masonry collage of abstract tiles that dissolves into the page,
+then How to / Features / About. Logo reverted to `cielo-mark.svg`.
+
+**Why:** Asked for a mix of mymind, Cosmos and Pinterest in our colours. What
+those three share is that **the grid is the argument** — so the collage sits
+directly under the hero rather than being described in copy.
+
+**Decisions worth not relitigating:**
+
+- **The collage is abstract gradients, not imagery.** It must never show real
+  saves: a library is private (`docs/product-principles.md`), and stock photos
+  would misrepresent what the product holds.
+- The logo uses the **exact accent `#95FF00`**, matching every other accent.
+  That is 1.27:1 on white, so it reads as a soft brand shape — a deliberate
+  brand call, made twice, not an oversight. The earlier dark disc and the
+  darkened `#569400` lockup were both rejected; `cielo-mark-light-bg.svg` is
+  deleted so there is one mark, not two.
+
+**Touched:** `components/landing/hero-collage.tsx` (new), `app/page.tsx`,
+`app/globals.css` (`.hero-wash`, `.collage-fade`), `components/brand/logo.tsx`.
+
+**Verified:** 1440px and 375px, no overflow at either. The wash was `120%` wide
+and pushed mobile scroll width to 413px — now capped at `100%`.
+
+**Follow-ups:** Landing copy is still my first draft and wants a rewrite in your
+voice. No footer.
+
+---
+
 ## 2026-09-12 — Search actually works
 
 **What:** `GET /api/search` is implemented and the library's search field is

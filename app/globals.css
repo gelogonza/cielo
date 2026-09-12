@@ -198,3 +198,27 @@ body {
     background: var(--color-line);
   }
 }
+
+/* The collage is scenery: it dissolves into the page rather than ending. */
+.collage-fade {
+  mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+}
+
+/* A single soft acid wash behind the hero — the only place the accent appears
+   as a large area, kept faint so text over it stays at full contrast. */
+.hero-wash::before {
+  content: "";
+  position: absolute;
+  inset: -20% 0 auto 50%;
+  translate: -50% 0;
+  /* Never wider than its section, or it extends the page's scroll width. */
+  width: min(1100px, 100%);
+  aspect-ratio: 2 / 1;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in oklab, var(--color-accent) 22%, transparent) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: -1;
+}

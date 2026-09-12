@@ -68,10 +68,11 @@ export function Logo({
         onAnimationEnd={() => setIsSpinning(false)}
       >
         <Image
-          // The neon mark is 1.27:1 on white. This variant is the same artwork
-          // with the green darkened to 3.73:1 — a light-ground lockup, which is
-          // what a neon brand colour normally needs.
-          src="/brand/cielo-mark-light-bg.svg"
+          // Deliberately the exact accent green (#95FF00), matching every other
+          // accent in the app. That is 1.27:1 on white, so the mark reads as a
+          // soft brand shape rather than a high-contrast one — a brand call,
+          // not an oversight. The dark eye in the artwork carries its legibility.
+          src="/brand/cielo-mark.svg"
           alt=""
           width={MARK_WIDTH}
           height={MARK_HEIGHT}
