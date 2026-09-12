@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { AuthCard } from "@/components/auth/auth-card";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
@@ -35,60 +38,52 @@ export default function SignupPage() {
 
   if (isSubmitted) {
     return (
-      <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-4 px-6 py-16">
-        <h1 className="text-2xl font-semibold">Check your email</h1>
-        <p className="text-sm text-zinc-600">
-          We sent a confirmation link to {email}. Follow it to finish signing up.
-        </p>
-      </main>
+      <AuthCard title="Check your email" subtitle={`We sent a confirmation link to ${email}.`}>
+        <p className="text-muted text-base">Follow it to finish signing up.</p>
+      </AuthCard>
     );
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Sign up</h1>
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          Email
-          <input
+    <AuthCard title="Sign up" subtitle="Start your Cielo library">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-7">
+        <div className="flex flex-col gap-3.5">
+          <Field
             type="email"
             required
+            aria-label="Email"
+            placeholder="Email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="rounded border border-zinc-300 px-3 py-2"
           />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm">
-          Password
-          <input
+          <Field
             type="password"
             required
             minLength={8}
+            aria-label="Password"
+            placeholder="Password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="rounded border border-zinc-300 px-3 py-2"
           />
-        </label>
+        </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p role="alert" className="text-center text-sm text-red-400">
+            {error}
+          </p>
+        )}
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
-        >
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Signing up..." : "Sign up"}
-        </button>
+        </Button>
       </form>
 
-      <p className="text-sm text-zinc-600">
+      <p className="text-muted text-center text-base">
         Already have an account?{" "}
-        <Link href="/login" className="font-medium underline">
+        <Link href="/login" className="text-primary-text font-medium">
           Log in
         </Link>
       </p>
-    </main>
+    </AuthCard>
   );
 }
