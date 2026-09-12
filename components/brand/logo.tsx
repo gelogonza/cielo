@@ -67,16 +67,17 @@ export function Logo({
         }`}
         onAnimationEnd={() => setIsSpinning(false)}
       >
-        <span className="bg-brand-ground flex size-full items-center justify-center rounded-full p-[16%]">
-          <Image
-            src="/brand/cielo-mark.svg"
-            alt=""
-            width={MARK_WIDTH}
-            height={MARK_HEIGHT}
-            priority
-            className="block size-full -rotate-[160.69deg]"
-          />
-        </span>
+        <Image
+          // The neon mark is 1.27:1 on white. This variant is the same artwork
+          // with the green darkened to 3.73:1 — a light-ground lockup, which is
+          // what a neon brand colour normally needs.
+          src="/brand/cielo-mark-light-bg.svg"
+          alt=""
+          width={MARK_WIDTH}
+          height={MARK_HEIGHT}
+          priority
+          className="block size-full -rotate-[160.69deg]"
+        />
       </span>
     </a>
   );

@@ -35,10 +35,6 @@
   --color-accent-contrast: #212121;
   --color-accent-strong: #3f6e00;
 
-  /* The mark is acid green on transparent and disappears on a light ground.
-     It keeps the dark disc it already wears as a favicon and app icon. */
-  --color-brand-ground: #121212;
-
   /* Panel radii (pills use Tailwind's rounded-full) */
   --radius-panel: 32px;
   --radius-field: 20px;
@@ -161,5 +157,44 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-skeleton {
     animation: none;
+  }
+}
+
+/* Animated search ring — a slow glint travelling around a hairline border.
+   @property is what makes the angle interpolate; browsers without it simply
+   render the gradient's first frame, which is a plain border. */
+@property --search-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.search-ring {
+  background: conic-gradient(
+    from var(--search-angle),
+    var(--color-line) 0%,
+    color-mix(in oklab, var(--color-accent-strong) 40%, var(--color-line)) 8%,
+    var(--color-line) 20%,
+    var(--color-line) 100%
+  );
+  animation: search-ring-spin 7s linear infinite;
+}
+
+@keyframes search-ring-spin {
+  to {
+    --search-angle: 360deg;
+  }
+}
+
+/* The glint is decoration; it stops once the field is actually in use. */
+.search-ring:focus-within {
+  animation-play-state: paused;
+  background: color-mix(in oklab, var(--color-accent-strong) 35%, var(--color-line));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-ring {
+    animation: none;
+    background: var(--color-line);
   }
 }

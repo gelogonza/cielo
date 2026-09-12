@@ -37,6 +37,27 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Logo: light-ground lockup instead of a dark disc
+
+**What:** Removed the dark disc added behind the logo in the light-theme commit.
+The mark now uses `cielo-mark-light-bg.svg` — the same artwork with the green
+darkened from `#95FF00` to `#569400`.
+
+**Why:** The disc read as a badge rather than a logo. Neon on white is 1.27:1,
+so the mark still needed help; a darker lockup for light backgrounds is the
+normal answer for a neon brand colour, and 3.73:1 keeps it clearly visible
+without going muddy.
+
+**Touched:** `public/brand/cielo-mark-light-bg.svg` (new), `components/brand/logo.tsx`,
+`app/globals.css` (dropped the now-unused `--color-brand-ground`).
+
+**Worth knowing:** the variant is a **palette swap of the exported asset** —
+four `fill` values, same geometry. The neon original is still what the favicon
+and PWA icons composite onto dark, so both files are live and should stay in
+step if the mark is ever redrawn.
+
+---
+
 ## 2026-09-12 — Light theme, skeleton loaders, smaller nav and search
 
 **What:** The app now sits on a light ground. Added skeleton loaders (route-level
