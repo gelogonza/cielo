@@ -1,26 +1,129 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Cielo design tokens — sourced from the "cielo" Figma file (key 7yeCPsJJD9ta3SCzx70zis).
+ * The product is dark-only by design: every frame sits on --color-ink.
+ */
+@theme {
+  /* Surfaces */
+  --color-ink: #121212;
+  --color-surface: #212121;
+  --color-surface-raised: #1e1e1e;
+  --color-thumb: #262626;
+  --color-media: #292929;
+
+  /* Lines */
+  --color-line: #262626;
+  --color-divider: #1a1a1a;
+
+  /* Text */
+  --color-primary-text: #ffffff;
+  --color-secondary-text: #f5f5f5;
+  --color-muted: #9e9e9e;
+
+  /* Accent */
+  --color-accent: #95ff00;
+  --color-accent-contrast: #212121;
+
+  /* Panel radii (pills use Tailwind's rounded-full) */
+  --radius-panel: 32px;
+  --radius-field: 20px;
+  --radius-row: 24px;
+  --radius-card: 4px;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-ink);
+  color: var(--color-primary-text);
+  font-family: var(--font-sans);
+}
+
+/* The feed is a CSS-column masonry; cards must not be split across columns. */
+.masonry-item {
+  break-inside: avoid;
+}
+
+/* Logo click spin — paired with components/brand/logo.tsx (SPIN_MS). */
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-logo-spin {
+  animation: logo-spin 420ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-logo-spin {
+    animation: none;
+  }
+}
+
+/* Landing marquee — two rows drifting in opposite directions. Each row is
+   duplicated in the markup, so a 50% translate loops seamlessly. */
+@keyframes marquee-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes marquee-right {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-marquee-left {
+  animation: marquee-left 38s linear infinite;
+}
+
+.animate-marquee-right {
+  animation: marquee-right 46s linear infinite;
+}
+
+/* Fade the rows out at both edges so they drift in from nowhere. */
+.marquee-mask {
+  mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee-left,
+  .animate-marquee-right {
+    animation: none;
+  }
+}
+
+/* viewportFit: cover lets the page run under an iPhone notch and home bar, so
+   the app shell pays the insets back. */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Horizontal strips (mobile sections/tags) scroll without a visible bar. */
+@media (max-width: 1023px) {
+  .overflow-x-auto {
+    scrollbar-width: none;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
 }
