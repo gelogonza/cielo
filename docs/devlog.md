@@ -37,6 +37,50 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Thumbnails for pages that publish no og:image
+
+**What:** Saves no longer land without a picture. Both extractors now fall
+through `og:image` → `og:image:url` → `twitter:image` → `twitter:image:src` →
+apple-touch-icon → largest declared icon, and resolve relative URLs to absolute.
+The extension additionally borrows the largest suitable `<img>` off the rendered
+page — something only a content script can see. The feed falls back to a
+typographic card when there is still nothing.
+
+**Why:** Reported as "the thumbnail didn't save" on
+`https://www.priyamwada.me/`. Nothing had malfunctioned — that page publishes
+**zero** og and twitter tags, so there was no image to find and the column was
+correctly null. The gap was that we only ever looked at `og:image`, and a miss
+produced a blank grey card, which reads as a loading failure in a visual library.
+
+**Touched:**
+
+- `lib/scrape/scrape-url.ts` — fallback chain, `twitter:title`, and absolute-URL
+  resolution against the _final_ response URL so redirects resolve correctly.
+- `extension/src/lib/extract-metadata.js` — same chain plus `largestContentImage`
+  (min 200px per edge; skips spacers, tracking pixels and `data:` URIs).
+- `components/library/item-card.tsx` — `TextCard` fallback; also demotes a
+  thumbnail to it when the image 404s or turns out to be favicon-sized.
+- `components/library/item-detail.tsx` — matching fallback in the media pane.
+
+**Decisions worth not relitigating:**
+
+- Icons and borrowed page images are kept **out of** the `images` array that
+  drives `contentType`. A favicon must never make a save look like an `IMAGE`,
+  and two of them must never make it a `CAROUSEL`.
+- Size is judged at render time, not at save time. A site's "favicon.png" can be
+  1600px (priyamwada.me's is), so the card checks `naturalWidth` and only
+  demotes genuinely small images.
+
+**Verified:** re-saved the reported URL against the live database — it now
+stores an icon instead of null, and all three items in the library render with
+a picture.
+
+**Follow-ups:** No backfill — items saved before this keep their null thumbnail
+until re-saved. A screenshot-based thumbnail (`chrome.tabs.captureVisibleTab`)
+would beat an icon, but needs a permission the plan deliberately locked down.
+
+---
+
 ## 2026-09-11 — Extension verified end to end in Chrome
 
 **What:** Loaded the extension unpacked in real Chrome and saved a page with it.

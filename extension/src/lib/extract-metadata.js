@@ -50,6 +50,8 @@ export function extractMetadata(doc, hostname, pageUrl = null) {
 
   const ogImages = metaContents(doc, "og:image");
   const twitterImages = metaContents(doc, "twitter:image");
+  // Only these drive contentType below — a favicon or an in-page photo says
+  // nothing about whether the post is a carousel.
   const images = ogImages.length > 0 ? ogImages : twitterImages;
 
   const title =
@@ -69,11 +71,111 @@ export function extractMetadata(doc, hostname, pageUrl = null) {
     contentType = "IMAGE";
   }
 
+  // Many pages publish no og:image at all, which would leave a blank card in
+  // the feed. Unlike the server scraper, a content script sees the rendered
+  // page, so it can borrow a real image off the page before resorting to an
+  // icon. Kept out of `images` so contentType is unaffected.
+  const thumbnailCandidate = images[0] ?? largestContentImage(doc) ?? iconHref(doc) ?? null;
+
   return {
     title: title || null,
-    thumbnailUrl: images[0] ?? null,
+    thumbnailUrl: toAbsolute(thumbnailCandidate, pageUrl ?? url),
     contentType,
     sourcePlatform: platform,
     url,
   };
+}
+
+/** Smallest edge a page image must have before it is worth using as a thumbnail. */
+const MIN_IMAGE_EDGE = 200;
+
+/**
+ * Largest sufficiently big <img> on the page. Filters out spacers, tracking
+ * pixels, icons and inline data URIs; picks by area so a hero image wins over
+ * a row of small ones.
+ *
+ * @param {Document} doc
+ */
+function largestContentImage(doc) {
+  let best = null;
+
+  for (const image of Array.from(doc.images ?? [])) {
+    const source = image.currentSrc || image.src;
+
+    if (!source || source.startsWith("data:")) {
+      continue;
+    }
+
+    // naturalWidth is 0 for images that have not decoded yet, so fall back to
+    // the laid-out box and then the declared attributes.
+    const width =
+      image.naturalWidth || image.clientWidth || Number(image.getAttribute("width")) || 0;
+    const height =
+      image.naturalHeight || image.clientHeight || Number(image.getAttribute("height")) || 0;
+
+    if (width < MIN_IMAGE_EDGE || height < MIN_IMAGE_EDGE) {
+      continue;
+    }
+
+    const area = width * height;
+
+    if (!best || area > best.area) {
+      best = { source, area };
+    }
+  }
+
+  return best?.source ?? null;
+}
+
+/** Prefers an apple-touch-icon, then the icon declaring the largest size. */
+function iconHref(doc) {
+  const touch = doc.querySelector('link[rel~="apple-touch-icon"]');
+
+  if (touch?.getAttribute("href")) {
+    return touch.getAttribute("href");
+  }
+
+  let best = null;
+
+  for (const link of Array.from(doc.querySelectorAll('link[rel~="icon"]'))) {
+    const href = link.getAttribute("href");
+
+    if (!href) {
+      continue;
+    }
+
+    // sizes can be "any", "32x32", or "48x48 32x32" — take the largest number.
+    const size = Math.max(
+      0,
+      ...(link.getAttribute("sizes") ?? "")
+        .split(/\s+/)
+        .map((token) => Number.parseInt(token, 10))
+        .filter((value) => Number.isFinite(value)),
+    );
+
+    if (!best || size > best.size) {
+      best = { href, size };
+    }
+  }
+
+  return best?.href ?? null;
+}
+
+/**
+ * og:image and icon hrefs are routinely root-relative; stored that way they
+ * render broken once the feed shows them on another origin.
+ *
+ * @param {string | null} candidate
+ * @param {string | null} base
+ */
+function toAbsolute(candidate, base) {
+  if (!candidate) {
+    return null;
+  }
+
+  try {
+    return base ? new URL(candidate, base).href : candidate;
+  } catch {
+    return candidate;
+  }
 }

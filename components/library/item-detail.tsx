@@ -60,7 +60,7 @@ export function ItemDetailOverlay({
     <Overlay label={item.title ?? "Item"} onClose={onClose}>
       <div className="flex w-full flex-col sm:h-[700px] sm:w-[1100px] sm:max-w-full sm:flex-row sm:items-start">
         <div className="bg-media relative aspect-[4/3] w-full shrink-0 overflow-hidden sm:aspect-auto sm:h-full sm:w-[620px] sm:min-w-0 sm:flex-1">
-          {item.thumbnailUrl && (
+          {item.thumbnailUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- hotlinked, see ItemCard
             <img
               src={item.thumbnailUrl}
@@ -68,6 +68,13 @@ export function ItemDetailOverlay({
               referrerPolicy="no-referrer"
               className="size-full object-cover"
             />
+          ) : (
+            // Same reasoning as the feed's TextCard: a save with no picture
+            // should still look deliberate rather than empty.
+            <div className="flex size-full flex-col items-center justify-center gap-2 p-10 text-center">
+              <p className="text-secondary-text text-xl font-medium">{item.title ?? "Untitled"}</p>
+              {label && <p className="text-muted text-sm">{label}</p>}
+            </div>
           )}
         </div>
 

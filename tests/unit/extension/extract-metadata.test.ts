@@ -137,3 +137,95 @@ describe("extractMetadata", () => {
     });
   });
 });
+
+describe("extractMetadata thumbnail fallbacks", () => {
+  const page = "https://www.priyamwada.me/";
+
+  it("borrows a large in-page image when the page publishes no og:image", () => {
+    // The real case that surfaced this: a portfolio with no og tags at all.
+    const doc = docFrom(`<html><head><title>Portfolio</title></head><body>
+      <img src="/spacer.gif" width="1" height="1" />
+      <img src="/hero.jpg" width="1200" height="800" />
+    </body></html>`);
+
+    expect(extractMetadata(doc, "www.priyamwada.me", page).thumbnailUrl).toBe(
+      "https://www.priyamwada.me/hero.jpg",
+    );
+  });
+
+  it("picks the largest in-page image by area", () => {
+    const doc = docFrom(`<html><body>
+      <img src="/small.jpg" width="220" height="220" />
+      <img src="/big.jpg" width="900" height="600" />
+      <img src="/medium.jpg" width="400" height="300" />
+    </body></html>`);
+
+    expect(extractMetadata(doc, "example.com", "https://example.com/").thumbnailUrl).toBe(
+      "https://example.com/big.jpg",
+    );
+  });
+
+  it("ignores tracking pixels, icons and inline data URIs", () => {
+    const doc = docFrom(`<html><body>
+      <img src="https://track.test/p.gif" width="1" height="1" />
+      <img src="/icon.png" width="32" height="32" />
+      <img src="data:image/png;base64,AAAA" width="800" height="800" />
+    </body></html>`);
+
+    expect(extractMetadata(doc, "example.com", "https://example.com/").thumbnailUrl).toBeNull();
+  });
+
+  it("falls back to the apple-touch-icon when there is no usable page image", () => {
+    const doc = docFrom(`<html><head>
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+      <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    </head><body></body></html>`);
+
+    expect(extractMetadata(doc, "example.com", "https://example.com/").thumbnailUrl).toBe(
+      "https://example.com/apple-touch-icon.png",
+    );
+  });
+
+  it("picks the largest declared icon when there is no touch icon", () => {
+    const doc = docFrom(`<html><head>
+      <link rel="icon" href="/small.png" sizes="16x16" />
+      <link rel="icon" href="/big.png" sizes="192x192" />
+    </head><body></body></html>`);
+
+    expect(extractMetadata(doc, "example.com", "https://example.com/").thumbnailUrl).toBe(
+      "https://example.com/big.png",
+    );
+  });
+
+  it("resolves a root-relative og:image against the page URL", () => {
+    const doc = docFrom(`<html><head>
+      <meta property="og:image" content="/og.png" />
+    </head></html>`);
+
+    expect(extractMetadata(doc, "example.com", "https://example.com/deep/post").thumbnailUrl).toBe(
+      "https://example.com/og.png",
+    );
+  });
+
+  it("still prefers og:image over every fallback", () => {
+    const doc = docFrom(`<html><head>
+      <meta property="og:image" content="https://cdn.test/og.jpg" />
+      <link rel="apple-touch-icon" href="/icon.png" />
+    </head><body><img src="/hero.jpg" width="1200" height="800" /></body></html>`);
+
+    expect(extractMetadata(doc, "example.com", "https://example.com/").thumbnailUrl).toBe(
+      "https://cdn.test/og.jpg",
+    );
+  });
+
+  it("does not let a borrowed page image change contentType", () => {
+    // A single og:image on a platform means IMAGE; a borrowed one must not.
+    const doc = docFrom(`<html><body>
+      <img src="/hero.jpg" width="1200" height="800" />
+    </body></html>`);
+
+    expect(extractMetadata(doc, "instagram.com", "https://instagram.com/p/a").contentType).toBe(
+      "LINK",
+    );
+  });
+});

@@ -56,10 +56,76 @@ export async function scrapeUrl(url: string): Promise<ScrapedMetadata | null> {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    const title = $('meta[property="og:title"]').attr("content") || $("title").text() || null;
-    const thumbnailUrl = $('meta[property="og:image"]').attr("content") || null;
+    const title =
+      $('meta[property="og:title"]').attr("content") ||
+      $('meta[name="twitter:title"]').attr("content") ||
+      $("title").text() ||
+      null;
 
-    return { title, thumbnailUrl };
+    // Plenty of sites publish no og:image at all — personal sites, portfolios
+    // and docs especially — and a bookmark with no picture is a blank card in
+    // a visual library. Fall back through the other conventions before giving
+    // up, ending at the touch icon, which almost every site has.
+    const thumbnailCandidate =
+      $('meta[property="og:image"]').attr("content") ||
+      $('meta[property="og:image:url"]').attr("content") ||
+      $('meta[name="twitter:image"]').attr("content") ||
+      $('meta[name="twitter:image:src"]').attr("content") ||
+      largestIconHref($) ||
+      null;
+
+    return {
+      title,
+      // These values are frequently root-relative ("/og.png"); stored as-is
+      // they render broken, so resolve against the page they came from.
+      thumbnailUrl: toAbsolute(thumbnailCandidate, response.url || parsedUrl.href),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Prefers an apple-touch-icon, then the icon declaring the largest size. */
+function largestIconHref($: cheerio.CheerioAPI): string | null {
+  const touch = $('link[rel~="apple-touch-icon"]').attr("href");
+
+  if (touch) {
+    return touch;
+  }
+
+  let best: { href: string; size: number } | null = null;
+
+  $('link[rel~="icon"]').each((_, element) => {
+    const href = $(element).attr("href");
+
+    if (!href) {
+      return;
+    }
+
+    // sizes can be "any", "32x32", or "48x48 32x32" — take the largest number.
+    const size = Math.max(
+      0,
+      ...($(element).attr("sizes") ?? "")
+        .split(/\s+/)
+        .map((token) => Number.parseInt(token, 10))
+        .filter((value) => Number.isFinite(value)),
+    );
+
+    if (!best || size > best.size) {
+      best = { href, size };
+    }
+  });
+
+  return best ? (best as { href: string }).href : null;
+}
+
+function toAbsolute(candidate: string | null, base: string): string | null {
+  if (!candidate) {
+    return null;
+  }
+
+  try {
+    return new URL(candidate, base).href;
   } catch {
     return null;
   }

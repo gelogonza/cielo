@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { SerializedItem } from "@/lib/items/serialize";
 import { sourceLabel, toSourcePlatform } from "@/lib/items/platform";
 import { SourceBadge } from "./source-badge";
@@ -20,6 +21,9 @@ export function ItemCard({
   onOpen?: (id: string) => void;
 }) {
   const label = sourceLabel(item.url);
+  // Set when the thumbnail cannot be shown full-bleed: it failed to load, or
+  // it turned out to be a favicon-sized icon that would smear across the card.
+  const [useTextCard, setUseTextCard] = useState(false);
 
   return (
     <button
@@ -27,17 +31,28 @@ export function ItemCard({
       onClick={() => onOpen?.(item.id)}
       className="group masonry-item bg-thumb rounded-card relative block w-full overflow-hidden text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      {item.thumbnailUrl ? (
+      {item.thumbnailUrl && !useTextCard ? (
         // eslint-disable-next-line @next/next/no-img-element -- hotlinked, see above
         <img
           src={item.thumbnailUrl}
           alt={item.title ?? ""}
           loading="lazy"
           referrerPolicy="no-referrer"
+          // Thumbnails are hotlinked, so they can 404 or be hotlink-blocked
+          // long after the save. Fall through to the text card rather than
+          // leaving a broken-image glyph in the feed.
+          onError={() => setUseTextCard(true)}
+          // When all a site offered was a favicon, showing it full-bleed is a
+          // blurry smear. Demote it to the text card's small mark instead.
+          onLoad={(event) => {
+            if (event.currentTarget.naturalWidth < MIN_FULL_BLEED_WIDTH) {
+              setUseTextCard(true);
+            }
+          }}
           className="block h-auto w-full"
         />
       ) : (
-        <span className="block w-full" style={{ aspectRatio: 4 / 5 }} />
+        <TextCard item={item} label={label} iconUrl={item.thumbnailUrl} />
       )}
 
       <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[165px] bg-gradient-to-b from-transparent to-black/[0.88] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100" />
@@ -55,5 +70,48 @@ export function ItemCard({
         <SourceBadge source={toSourcePlatform(item.sourcePlatform)} />
       </span>
     </button>
+  );
+}
+
+/** Below this width a thumbnail is an icon, not a picture of the page. */
+const MIN_FULL_BLEED_WIDTH = 200;
+
+/**
+ * Shown when a save has no usable picture. Some pages publish no image of any
+ * kind, so the feed needs something deliberate to fall back to — a blank grey
+ * rectangle reads as a loading failure.
+ */
+function TextCard({
+  item,
+  label,
+  iconUrl,
+}: {
+  item: SerializedItem;
+  label: string | null;
+  /** A favicon-sized image, shown as a small mark rather than stretched. */
+  iconUrl?: string | null;
+}) {
+  return (
+    <span
+      className="bg-thumb flex w-full flex-col justify-between gap-3 p-4"
+      style={{ aspectRatio: 4 / 5 }}
+    >
+      <span className="flex flex-col gap-3">
+        {iconUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- hotlinked, see above
+          <img
+            src={iconUrl}
+            alt=""
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            className="size-8 rounded-[6px] object-contain"
+          />
+        )}
+        <span className="text-secondary-text line-clamp-5 text-[15px] leading-[20px] font-medium">
+          {item.title ?? label ?? "Untitled"}
+        </span>
+      </span>
+      {label && <span className="text-muted truncate text-[11px]">{label}</span>}
+    </span>
   );
 }
