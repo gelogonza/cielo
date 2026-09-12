@@ -31,7 +31,9 @@ export function ItemCard({
       onClick={() => onOpen?.(item.id)}
       className="group masonry-item bg-thumb rounded-card relative block w-full overflow-hidden text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      {item.thumbnailUrl && !useTextCard ? (
+      {item.body ? (
+        <QuoteCard body={item.body} label={label} />
+      ) : item.thumbnailUrl && !useTextCard ? (
         // eslint-disable-next-line @next/next/no-img-element -- hotlinked, see above
         <img
           src={item.thumbnailUrl}
@@ -55,9 +57,14 @@ export function ItemCard({
         <TextCard item={item} label={label} iconUrl={item.thumbnailUrl} />
       )}
 
-      <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[165px] bg-gradient-to-b from-transparent to-black/[0.88] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100" />
+      {!item.body && (
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[165px] bg-gradient-to-b from-transparent to-black/[0.88] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100" />
+      )}
 
-      <span className="pointer-events-none absolute inset-x-3.5 bottom-3.5 flex translate-y-1 flex-col gap-[3px] opacity-0 transition duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+      <span
+        hidden={Boolean(item.body)}
+        className="pointer-events-none absolute inset-x-3.5 bottom-3.5 flex translate-y-1 flex-col gap-[3px] opacity-0 transition duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100"
+      >
         {item.title && (
           <span className="truncate text-sm leading-[18px] font-medium text-white">
             {item.title}
@@ -111,6 +118,22 @@ function TextCard({
           {item.title ?? label ?? "Untitled"}
         </span>
       </span>
+      {label && <span className="text-muted truncate text-[11px]">{label}</span>}
+    </span>
+  );
+}
+
+/**
+ * A saved highlight. Unlike the other cards this has no fixed aspect — the
+ * quote sets its own height, which is what gives the masonry its rhythm.
+ */
+function QuoteCard({ body, label }: { body: string; label: string | null }) {
+  return (
+    <span className="bg-surface flex w-full flex-col gap-4 p-5">
+      <span aria-hidden className="text-accent -mb-2 text-2xl leading-none">
+        &ldquo;
+      </span>
+      <span className="text-secondary-text line-clamp-[12] text-[15px] leading-[22px]">{body}</span>
       {label && <span className="text-muted truncate text-[11px]">{label}</span>}
     </span>
   );

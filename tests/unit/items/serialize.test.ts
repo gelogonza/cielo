@@ -5,6 +5,7 @@ const base = {
   id: "item-1",
   url: "https://are.na/block/1",
   title: "Poster archive",
+  body: null,
   thumbnailUrl: "https://cdn.test/thumb.jpg",
   contentType: "LINK" as const,
   sourceType: "WEB" as const,
@@ -34,6 +35,16 @@ describe("serializeItem", () => {
     expect(serializeItem({ ...base, note: { body: "Reference for grid" } }).note).toBe(
       "Reference for grid",
     );
+  });
+
+  it("carries a highlight's captured text on the wire", () => {
+    expect(serializeItem({ ...base, body: "Remember everything. Organize nothing." }).body).toBe(
+      "Remember everything. Organize nothing.",
+    );
+  });
+
+  it("reports body as null for a save that is not a highlight", () => {
+    expect(serializeItem(base).body).toBeNull();
   });
 
   it("reports a loaded-but-absent note as null", () => {

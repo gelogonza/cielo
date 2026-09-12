@@ -6,6 +6,8 @@ import { tagService } from "@/lib/tags/tag-service";
 export interface SaveLinkInput {
   url: string;
   title: string | null;
+  /** The captured text of a highlight; null for every other kind of save. */
+  body?: string | null;
   thumbnailUrl: string | null;
   contentType: ContentType;
   sourcePlatform: string | null;
@@ -61,7 +63,9 @@ class ItemService {
   private async createItem(userId: string, input: SaveLinkInput): Promise<string> {
     let { title, thumbnailUrl } = input;
 
-    if (!thumbnailUrl) {
+    // A highlight carries its own words and is rendered as a quote, so there
+    // is nothing a scrape could add — skip the round-trip.
+    if (!thumbnailUrl && input.contentType !== "TEXT") {
       const scraped = await scrapeUrl(input.url);
       title = title ?? scraped?.title ?? null;
       thumbnailUrl = thumbnailUrl ?? scraped?.thumbnailUrl ?? null;
@@ -72,6 +76,7 @@ class ItemService {
         userId,
         url: input.url,
         title,
+        body: input.body ?? null,
         thumbnailUrl,
         contentType: input.contentType,
         sourceType: "WEB",

@@ -60,7 +60,15 @@ export function ItemDetailOverlay({
     <Overlay label={item.title ?? "Item"} onClose={onClose}>
       <div className="flex w-full flex-col sm:h-[700px] sm:w-[1100px] sm:max-w-full sm:flex-row sm:items-start">
         <div className="bg-media relative aspect-[4/3] w-full shrink-0 overflow-hidden sm:aspect-auto sm:h-full sm:w-[620px] sm:min-w-0 sm:flex-1">
-          {item.thumbnailUrl ? (
+          {item.body ? (
+            // A highlight is the content, not an illustration of it.
+            <blockquote className="flex size-full flex-col justify-center gap-4 overflow-auto p-10">
+              <span aria-hidden className="text-accent text-4xl leading-none">
+                &ldquo;
+              </span>
+              <p className="text-secondary-text text-xl leading-[30px]">{item.body}</p>
+            </blockquote>
+          ) : item.thumbnailUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- hotlinked, see ItemCard
             <img
               src={item.thumbnailUrl}

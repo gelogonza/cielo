@@ -54,6 +54,7 @@ describe("POST /api/save", () => {
       url: validBody.url,
       title: validBody.title,
       thumbnailUrl: validBody.thumbnailUrl,
+      body: null,
       contentType: "LINK",
       sourcePlatform: "web",
       sectionIds: ["section-1"],

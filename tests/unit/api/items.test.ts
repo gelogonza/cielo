@@ -18,6 +18,7 @@ const storedItem = {
   id: "item-1",
   url: "https://are.na/block/1",
   title: "Poster archive",
+  body: null,
   thumbnailUrl: null,
   contentType: "LINK",
   sourceType: "WEB",

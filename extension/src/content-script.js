@@ -11,7 +11,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   try {
     const metadata = extractMetadata(document, location.hostname, location.href);
-    sendResponse({ ok: true, metadata });
+    // Read here rather than trusting info.selectionText, which Chrome
+    // truncates — a saved quote should be the whole highlight.
+    const selectionText = window.getSelection()?.toString() ?? "";
+    sendResponse({ ok: true, metadata, selectionText });
   } catch (error) {
     sendResponse({ ok: false, error: String(error) });
   }

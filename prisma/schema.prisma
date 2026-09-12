@@ -58,6 +58,9 @@ model Item {
   user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   url            String?     // nullable — null for direct uploads (source_type = DIRECT)
   title          String?
+  // The captured text of a highlight (content_type = TEXT). Null for every
+  // other kind of save — a link's words live on the page, not in our row.
+  body           String?
   thumbnailUrl   String?     @map("thumbnail_url") // hotlinked url (web) or S3 object url (direct)
   contentType    ContentType @map("content_type")
   sourceType     SourceType  @map("source_type")
@@ -70,6 +73,12 @@ model Item {
 
   // Postgres treats NULL as distinct in unique constraints, so multiple
   // direct uploads (url = null) never collide with each other here.
+  //
+  // Highlights from the same page would otherwise collide with each other and
+  // with the page itself, since they share a url. They carry a #:~:text=
+  // fragment naming the quote, which keeps each one distinct here AND makes
+  // "Visit original" scroll to the highlight. Saving the same quote twice
+  // still dedupes, which is what you want.
   @@unique([userId, url], name: "unique_user_url")
   @@index([savedAt]) // cursor for infinite scroll, newest-first default sort
   @@map("items")

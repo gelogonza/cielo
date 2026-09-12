@@ -4,6 +4,7 @@ interface ItemWithRelations {
   id: string;
   url: string | null;
   title: string | null;
+  body: string | null;
   thumbnailUrl: string | null;
   contentType: ContentType;
   sourceType: SourceType;
@@ -18,6 +19,7 @@ export interface SerializedItem {
   id: string;
   url: string | null;
   title: string | null;
+  body: string | null;
   thumbnailUrl: string | null;
   contentType: ContentType;
   sourceType: SourceType;
@@ -34,6 +36,7 @@ export function serializeItem(item: ItemWithRelations): SerializedItem {
     id: item.id,
     url: item.url,
     title: item.title,
+    body: item.body ?? null,
     thumbnailUrl: item.thumbnailUrl,
     contentType: item.contentType,
     sourceType: item.sourceType,

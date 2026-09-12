@@ -9,6 +9,8 @@ const SOURCE_PLATFORMS = ["tiktok", "instagram", "x", "web"] as const;
 const saveLinkSchema = z.object({
   url: z.string().trim().min(1),
   title: z.string().nullable().optional().default(null),
+  // The captured text of a highlight (contentType TEXT).
+  body: z.string().trim().min(1).nullable().optional().default(null),
   thumbnailUrl: z.string().nullable().optional().default(null),
   contentType: z.enum(CONTENT_TYPES),
   sourcePlatform: z.enum(SOURCE_PLATFORMS).nullable().optional().default(null),
@@ -36,6 +38,7 @@ export const POST = withAuth(async (request, _context, user) => {
       id: item.id,
       url: item.url,
       title: item.title,
+      body: item.body,
       thumbnailUrl: item.thumbnailUrl,
       contentType: item.contentType,
       sourceType: item.sourceType,

@@ -6,9 +6,12 @@ const MENU_PREFIX = "save-to-cielo";
 // One menu item per context so the label can say what will actually be saved —
 // "Save image to Cielo" on an image is clearer than a generic page save.
 const MENU_ITEMS = [
-  { context: "page", title: "Save page to Cielo", contexts: ["page", "selection"] },
+  { context: "page", title: "Save page to Cielo", contexts: ["page"] },
   { context: "link", title: "Save link to Cielo", contexts: ["link"] },
   { context: "image", title: "Save image to Cielo", contexts: ["image"] },
+  // Chrome treats a selection as its own context, so this replaces the page
+  // item whenever text is highlighted rather than competing with it.
+  { context: "selection", title: "Save selection to Cielo", contexts: ["selection"] },
 ];
 
 chrome.runtime.onInstalled.addListener(() => {

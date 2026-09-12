@@ -37,6 +37,46 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Save highlighted text as a quote
+
+**What:** Highlight text on any page, right-click → **Save selection to Cielo**,
+and it saves as a `TEXT` item rendered as a quote card. Added `Item.body` for
+the captured text.
+
+**Why:** Saving the page loses the sentence you actually wanted. `ContentType.TEXT`
+and the extension's `selection` context already existed but were inert — the
+selection was read and thrown away.
+
+**How the url works (the interesting part):** every highlight on a page shares
+that page's url, which would collide under `unique(user_id, url)` and silently
+dedupe all of them into one item. Each quote instead gets a
+[text fragment](https://wicg.github.io/scroll-to-text-fragment)
+(`#:~:text=…`) naming it, so highlights stay distinct, the _same_ quote saved
+twice still dedupes, and "Visit original" scrolls straight to the passage.
+Quotes over 200 chars use the spec's `textStart,textEnd` form, trimmed to word
+boundaries because fragments match exact text.
+
+**Touched:** `prisma/schema.prisma` + `prisma/manual-sql/005_item_body.sql`,
+`lib/items/{item-service,serialize}.ts`, `app/api/save/route.ts`,
+`docs/api-contract.md`, `extension/src/{content-script,background}.js`,
+`extension/src/lib/save-payload.js`, `components/library/{item-card,item-detail}.tsx`.
+
+**Decisions worth not relitigating:**
+
+- The content script reads `window.getSelection()` rather than trusting
+  `info.selectionText`, which Chrome truncates. Chrome's copy is the fallback.
+- A `TEXT` save skips the scrape entirely — the quote is the content, so a
+  fetch of the page has nothing to add.
+
+**Verified:** against the live database — two quotes from one page stayed
+distinct, the same quote twice deduped (`reused: true`), and both render as
+quote cards in the feed.
+
+**Follow-ups:** No way to save a highlight from the web app itself, only the
+extension. Quote cards clamp at 12 lines with no "show more".
+
+---
+
 ## 2026-09-12 — Backfill script for saves with no thumbnail
 
 **What:** `npm run backfill:thumbnails` re-scrapes items whose `thumbnail_url`

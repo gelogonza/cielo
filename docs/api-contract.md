@@ -15,6 +15,7 @@ Used by: extension (Tier 1 rich scrape, Tier 2 fallback) and web app (Tier 2 man
 {
   "url": "https://tiktok.com/@user/video/123",
   "title": "string | null",
+  "body": "string | null",
   "thumbnailUrl": "string | null",
   "contentType": "LINK | IMAGE | VIDEO | CAROUSEL | TEXT",
   "sourcePlatform": "tiktok | instagram | x | web | null",
@@ -22,6 +23,14 @@ Used by: extension (Tier 1 rich scrape, Tier 2 fallback) and web app (Tier 2 man
   "tagNames": ["string", "..."]
 }
 ```
+
+- `body` carries the captured text of a highlight and is only set when
+  `contentType` is `TEXT`. The extension sends the page's own URL with a
+  `#:~:text=` fragment naming the quote, so multiple highlights from one page
+  stay distinct under `unique(user_id, url)` instead of deduping into a single
+  item — and "Visit original" scrolls straight to the quote.
+- A `TEXT` save is never scraped: the quote is the content, so there is nothing
+  a fetch of the page could add.
 
 - If `thumbnailUrl` is `null`, the server falls back to `/api/scrape` internally before writing the item.
 - If `(userId, url)` already exists, the existing item is reused — no new row is created. `sectionIds`

@@ -69,6 +69,7 @@ describe("ItemService.saveLink", () => {
         userId: "user-1",
         url: baseInput.url,
         title: "Provided title",
+        body: null,
         thumbnailUrl: "https://example.com/thumb.jpg",
         contentType: "LINK",
         sourceType: "WEB",
