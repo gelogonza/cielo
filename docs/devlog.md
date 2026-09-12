@@ -88,8 +88,10 @@ Postgres, not just on screen.
 - Prisma connects as a dedicated `cielo_app` role, not `postgres` — Supabase
   will not hand over the postgres password and postgres cannot reset itself.
   `004_app_role.sql` creates it; the password lives only in `.env`.
-- The test account is `founder@cielo.app` / `CieloTest!2026pw`, created directly
-  in `auth.users` and pre-confirmed. A hand-made auth row **must** have its
+- The test account is `founder@cielo.app`, created directly in `auth.users` and
+  pre-confirmed. Its password is deliberately **not** recorded here — reset it
+  from the Supabase dashboard (Authentication → Users) if you need it. A
+  hand-made auth row **must** have its
   token columns set to `''` rather than NULL, or login fails with "Database
   error querying schema" — GoTrue scans them into non-nullable Go strings.
 
