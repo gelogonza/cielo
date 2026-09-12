@@ -282,3 +282,55 @@ body {
     display: none;
   }
 }
+
+/* Scroll-driven reveals.
+ *
+ * Everything is fully visible by default — the animations only exist inside
+ * @supports, so a browser without scroll timelines (Firefox, currently) simply
+ * shows the page, and nothing depends on JavaScript to become readable.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-up both;
+      animation-timeline: view();
+      animation-range: entry 5% cover 32%;
+      animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .tile-in-left,
+    .tile-in-right {
+      animation: tile-in-left both;
+      animation-timeline: view();
+      /* Finishes well before the tile centres, so the wall settles rather
+         than still sliding while you read past it. */
+      animation-range: entry 0% cover 28%;
+      animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .tile-in-right {
+      animation-name: tile-in-right;
+    }
+  }
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+
+@keyframes tile-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-56px) scale(0.96);
+  }
+}
+
+@keyframes tile-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(56px) scale(0.96);
+  }
+}

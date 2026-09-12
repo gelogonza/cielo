@@ -32,17 +32,20 @@ export default function Home() {
       <LandingNav />
 
       <main className="flex flex-1 flex-col items-center">
-        <section className="hero-wash relative isolate flex flex-col items-center gap-7 px-5 pt-20 pb-14 text-center sm:px-6 sm:pt-28">
-          <p className="border-line bg-surface/70 text-muted rounded-full border px-4 py-1.5 text-[13px]">
-            Welcome to Cielo
-          </p>
-
-          <h1 className="text-[64px] leading-[0.95] font-medium tracking-[-0.03em] text-balance sm:text-[88px] lg:text-[112px]">
-            All your bookmarks
-            <br />
-            in one place
+        {/* First screen is the wordmark alone; everything else is earned by
+            scrolling. -mt-[88px]/pt-[88px] lets the wash sit behind the nav
+            without the section being pushed below it. */}
+        <section className="hero-wash relative isolate -mt-[88px] flex min-h-svh w-full items-center justify-center px-5 pt-[88px] text-center">
+          <h1 className="text-[26vw] leading-[0.85] font-medium tracking-[-0.04em] sm:text-[22vw] lg:text-[18vw]">
+            Cielo
           </h1>
-          <p className="text-muted max-w-[540px] text-lg leading-[26px] text-balance sm:text-xl">
+        </section>
+
+        <section className="reveal flex flex-col items-center gap-7 px-5 pb-14 text-center sm:px-6">
+          <p className="max-w-[640px] text-3xl leading-[1.15] font-medium text-balance sm:text-4xl">
+            All your bookmarks in one place
+          </p>
+          <p className="text-muted max-w-[540px] text-lg leading-[26px] text-balance">
             Save anything from anywhere — a page, an image, a video, a line you highlighted — into
             one private library you organise yourself.
           </p>
@@ -65,10 +68,15 @@ export default function Home() {
           <p className="text-muted text-[13px]">Free. No ads, no feed, no tracking.</p>
         </section>
 
-        <HeroCollage />
+        <div className="reveal w-full">
+          <HeroCollage />
+        </div>
 
         <div className="flex w-full flex-col items-center gap-24 px-5 pt-8 pb-24 sm:px-6">
-          <section id="how-to" className="flex w-full scroll-mt-28 flex-col items-center gap-10">
+          <section
+            id="how-to"
+            className="reveal flex w-full scroll-mt-28 flex-col items-center gap-10"
+          >
             <SectionHeading
               eyebrow="How to"
               title="Save it once, find it later"
@@ -77,7 +85,7 @@ export default function Home() {
             <ProcessMarquee />
           </section>
 
-          <section id="features" className="w-full max-w-[900px] scroll-mt-28">
+          <section id="features" className="reveal w-full max-w-[900px] scroll-mt-28">
             <SectionHeading eyebrow="Features" title="What Cielo does" />
             <ul className="mt-10 grid gap-4 sm:grid-cols-2">
               {FEATURES.map((feature) => (
@@ -92,7 +100,7 @@ export default function Home() {
             </ul>
           </section>
 
-          <section id="about" className="w-full max-w-[640px] scroll-mt-28 text-center">
+          <section id="about" className="reveal w-full max-w-[640px] scroll-mt-28 text-center">
             <SectionHeading eyebrow="About" title="A quiet place for what you save" />
             <p className="text-muted mt-6 text-[15px] leading-[24px]">
               Saved things are scattered — Instagram saves, TikTok favourites, X bookmarks, browser

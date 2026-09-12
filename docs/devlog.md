@@ -37,6 +37,42 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Wordmark-only hero and scroll-driven reveals
+
+**What:** The first screen is now just "Cielo" filling the viewport. Everything
+below — tagline, CTAs, collage, sections — fades up as it scrolls in, and the
+collage tiles slide in from alternating sides. Dropped the "Welcome to Cielo"
+pill.
+
+**Why:** Requested. `All your bookmarks in one place` moved from the `h1` into
+the first revealed section, so the page still has a real heading.
+
+**Decisions worth not relitigating:**
+
+- **CSS scroll-driven animations, not IntersectionObserver.** The whole block
+  sits inside `@supports (animation-timeline: view())`, so everything is fully
+  visible by default: a browser without scroll timelines (Firefox, currently)
+  shows a normal page, and nothing needs JavaScript to become readable. An IO
+  implementation has to start elements hidden, which breaks exactly that.
+- Reveals end at ~30% cover so content settles before you read it, rather than
+  still drifting.
+
+**The bug worth remembering:** the tile animations completed instantly and never
+played. `.collage-fade` had `overflow-hidden`, which makes an element a **scroll
+container** — so each tile's `view()` timeline resolved against that
+never-scrolling box instead of the page, and every tile was permanently "fully
+in view". `overflow-x-clip` clips without creating a scroll container. Anything
+using `view()` must not sit inside an `overflow: hidden` ancestor.
+
+**Touched:** `app/page.tsx`, `app/globals.css`,
+`components/landing/hero-collage.tsx`.
+
+**Verified:** tiles measured mid-scroll at `translateX ±56 / opacity 0` before
+entry and `±2 / 0.97` settling, alternating sides, all 15 animating. No overflow
+at 1440px or 375px.
+
+---
+
 ## 2026-09-12 — Landing splash and a welcome line
 
 **What:** A full page load of the landing now opens with a splash — the mark

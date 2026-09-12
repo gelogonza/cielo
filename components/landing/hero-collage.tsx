@@ -34,10 +34,19 @@ const TILES: Tile[] = [
 
 export function HeroCollage() {
   return (
-    <div aria-hidden className="collage-fade w-full overflow-hidden px-4 sm:px-6">
+    // overflow-x-clip, not overflow-hidden: `hidden` would make this a scroll
+    // container, and the tiles' view() timelines would then resolve against
+    // this never-scrolling box and complete instantly. `clip` clips without
+    // creating one.
+    <div aria-hidden className="collage-fade w-full overflow-x-clip px-4 sm:px-6">
       <div className="mx-auto max-w-[1240px] columns-3 gap-3 [column-fill:balance] sm:columns-4 sm:gap-4 lg:columns-5">
         {TILES.map((tile, index) => (
-          <div key={index} className="mb-3 sm:mb-4">
+          // Alternating sides so the wall assembles from both edges rather
+          // than marching in one direction.
+          <div
+            key={index}
+            className={`mb-3 sm:mb-4 ${index % 2 === 0 ? "tile-in-left" : "tile-in-right"}`}
+          >
             <div
               className="border-line relative w-full overflow-hidden rounded-2xl border shadow-[0_1px_2px_rgba(18,18,18,0.04),0_10px_30px_rgba(18,18,18,0.05)]"
               style={{ aspectRatio: tile.ratio, background: tile.fill }}
