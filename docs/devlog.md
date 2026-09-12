@@ -37,6 +37,31 @@ probably two changes.
 
 ---
 
+## 2026-09-11 — Extension verified end to end in Chrome
+
+**What:** Loaded the extension unpacked in real Chrome and saved a page with it.
+The right-click save reached `/api/save` authenticated and the item landed in
+the library. This closes the "extension unverified against a live session"
+follow-up from the extension entry below.
+
+**Why it was in doubt:** `@supabase/ssr` sets the auth cookie `SameSite=Lax`, so
+it was an open question whether Chrome would attach it to a request initiated by
+the extension service worker rather than a page. **It does** — the `<all_urls>`
+host permission is enough, and no cookie-policy change was needed.
+
+**Worth knowing:** the first attempt looked like a bug (popup showed "Log in to
+start saving"). It was not. The session had been created in a different browser
+profile; the extension was reading its own Chrome's cookie jar, correctly found
+nothing, and said so. **The extension needs a login in the same browser it is
+installed in** — there is no separate extension sign-in.
+
+**Touched:** nothing — verification only.
+
+**Follow-ups:** Firefox still unsupported. `config.js` still hardcodes
+`http://localhost:3000`, so this needs changing before any real deployment.
+
+---
+
 ## 2026-09-11 — One commit per feature, devlog entry inside it
 
 **What:** Defined the per-feature workflow in `AGENTS.md`: verify, write the
