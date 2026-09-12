@@ -37,6 +37,48 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Search actually works
+
+**What:** `GET /api/search` is implemented and the library's search field is
+wired to it — debounced, and it replaces the feed. Matches an item's title, a
+highlight's captured text, its tag names and its url.
+
+**Why:** The field had been decorative since it was built; the animated
+placeholder was advertising a feature that did not exist.
+
+**Touched:** `prisma/manual-sql/006_search_vector.sql` (new — supersedes the
+never-applied 001, which predated `items.body`), `lib/items/item-service.ts`
+(`search`), `app/api/search/route.ts` (new), `components/library/{search-field,library-view}.tsx`,
+`docs/api-contract.md`, `prisma/schema.prisma` (comment).
+
+**Decisions worth not relitigating:**
+
+- The tsvector column is **deliberately absent from `schema.prisma`**. Prisma
+  cannot express a generated column, and nothing should read or write it
+  through the client — matching ids come from `$queryRaw`, then the rows are
+  loaded through Prisma so relation loading and the wire shape stay identical
+  to `list()`.
+- `websearch_to_tsquery`, not `plainto_tsquery`: users get quoted phrases and
+  `-exclusion` for free.
+- Results are **newest-first, not relevance-ranked**, so the `savedAt` cursor
+  contract is the same one `/api/items` uses.
+- Search **replaces** the section/tag filter rather than combining — a query is
+  a whole-library question, and `/api/search` has no section parameter.
+
+**Verified:** against the live database — a title word returned 4, a word from
+inside a saved quote returned 1, a tag name 1, a url host 3, and the quoted
+phrase `"personal search engine"` 1. Then through the UI end to end.
+
+**Also verified:** the route-level skeleton. `loading.tsx` completes too fast
+locally to see, so the streamed HTML was inspected directly: 40 skeleton nodes
+and the busy label arrive **before** the real content.
+
+**Follow-ups:** No relevance ranking. No integration coverage — the in-memory
+`FakePrisma` has no `$queryRaw`, so search is covered by route unit tests plus
+the live check above.
+
+---
+
 ## 2026-09-12 — Search bar: animated ring and typed placeholder
 
 **What:** The library's search field gained a slow glint travelling around its

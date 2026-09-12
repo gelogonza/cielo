@@ -22,10 +22,37 @@ const HOLD_MS = 1800;
  * accessible name never shifts underneath a screen reader, and the animation
  * stops the moment the field is actually used.
  */
-export function SearchField({ defaultValue }: { defaultValue?: string }) {
+export function SearchField({
+  defaultValue,
+  onSearch,
+}: {
+  defaultValue?: string;
+  /** Called with the debounced query; "" means the search was cleared. */
+  onSearch?: (query: string) => void;
+}) {
   const [placeholder, setPlaceholder] = useState(EXAMPLES[0]);
   const [isPaused, setIsPaused] = useState(Boolean(defaultValue));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Typing fires a query per keystroke otherwise; 250ms is short enough to
+  // feel immediate and long enough to skip most of a word.
+  function handleChange(value: string) {
+    setIsPaused(true);
+
+    if (debounce.current) {
+      clearTimeout(debounce.current);
+    }
+
+    debounce.current = setTimeout(() => onSearch?.(value.trim()), 250);
+  }
+
+  useEffect(
+    () => () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (isPaused) {
@@ -92,7 +119,8 @@ export function SearchField({ defaultValue }: { defaultValue?: string }) {
           // Any real interaction ends the demo for good — resuming it while
           // someone is thinking about their own query would be maddening.
           onFocus={() => setIsPaused(true)}
-          onInput={() => setIsPaused(true)}
+          // Covers the native clear button too, which fires an input event.
+          onChange={(event) => handleChange(event.target.value)}
           className="placeholder:text-muted text-primary-text h-full w-full rounded-full bg-transparent pr-3 pl-9 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/70"
         />
       </div>

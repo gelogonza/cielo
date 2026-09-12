@@ -129,17 +129,9 @@ model Note {
 }
 
 // ---------------------------------------------------------------------------
-// NOT expressible in schema.prisma — apply as a follow-up raw SQL migration:
-//
-// Full-text search index (title + tag names) referenced in the architecture
-// doc's /api/search route. Prisma doesn't support generated tsvector columns
-// without the postgresqlExtensions preview feature, so add manually:
-//
-//   ALTER TABLE items ADD COLUMN search_vector tsvector
-//     GENERATED ALWAYS AS (to_tsvector('english', coalesce(title, ''))) STORED;
-//   CREATE INDEX items_search_idx ON items USING GIN (search_vector);
-//
-// Tag-name search should be a separate query (join item_tags -> tags,
-// ILIKE or to_tsvector on tags.name) and unioned/combined in the API layer,
-// since tags live in a different table than the item's own search_vector.
+// items.search_vector is a generated tsvector column that Prisma cannot express
+// (no generated-column support without the postgresqlExtensions preview flag).
+// It is applied by prisma/manual-sql/006_search_vector.sql and queried through
+// $queryRaw in lib/items/item-service.ts — it is deliberately absent from this
+// model, since nothing should ever read or write it through the client.
 // ---------------------------------------------------------------------------

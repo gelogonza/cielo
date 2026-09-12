@@ -33,6 +33,7 @@ export function LibraryView({
 
   const [items, setItems] = useState(initialPage.items);
   const [cursor, setCursor] = useState(initialPage.nextCursor);
+  const [query, setQuery] = useState("");
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [activeTagId, setActiveTagId] = useState<string | null>(null);
   const [openItemId, setOpenItemId] = useState<string | null>(null);
@@ -44,23 +45,39 @@ export function LibraryView({
   // the sentinel can re-enter the viewport before state settles.
   const inFlight = useRef(false);
 
-  const buildQuery = useCallback(
-    (filter: { sectionId: string | null; tagId: string | null }, nextCursor?: string | null) => {
+  /**
+   * Search and the sidebar filters are alternatives, not combinations:
+   * /api/search has no section parameter, and a query is a whole-library
+   * question. A search therefore replaces whatever filter was active.
+   */
+  const buildUrl = useCallback(
+    (
+      filter: { sectionId: string | null; tagId: string | null; q: string },
+      nextCursor?: string | null,
+    ) => {
       const params = new URLSearchParams();
-      if (filter.sectionId) params.set("sectionId", filter.sectionId);
-      if (filter.tagId) params.set("tagId", filter.tagId);
+
+      if (filter.q) {
+        params.set("q", filter.q);
+      } else {
+        if (filter.sectionId) params.set("sectionId", filter.sectionId);
+        if (filter.tagId) params.set("tagId", filter.tagId);
+      }
+
       if (nextCursor) params.set("cursor", nextCursor);
-      return params.toString();
+
+      return `${filter.q ? "/api/search" : "/api/items"}?${params.toString()}`;
     },
     [],
   );
 
   // Filters load from the event that changed them rather than from an effect,
   // so the server-rendered first page is never discarded on mount.
-  const applyFilter = useCallback(
-    async (sectionId: string | null, tagId: string | null) => {
+  const load = useCallback(
+    async (sectionId: string | null, tagId: string | null, nextQuery: string) => {
       setActiveSectionId(sectionId);
       setActiveTagId(tagId);
+      setQuery(nextQuery);
       setIsLoading(true);
       // Drop the previous section's items straight away: leaving them up while
       // the new ones load shows content that does not belong to the filter the
@@ -69,7 +86,7 @@ export function LibraryView({
       setCursor(null);
 
       try {
-        const response = await fetch(`/api/items?${buildQuery({ sectionId, tagId })}`);
+        const response = await fetch(buildUrl({ sectionId, tagId, q: nextQuery }));
         if (!response.ok) return;
 
         const page: LibraryPage = await response.json();
@@ -79,7 +96,7 @@ export function LibraryView({
         setIsLoading(false);
       }
     },
-    [buildQuery],
+    [buildUrl],
   );
 
   const loadMore = useCallback(async () => {
@@ -92,7 +109,7 @@ export function LibraryView({
 
     try {
       const response = await fetch(
-        `/api/items?${buildQuery({ sectionId: activeSectionId, tagId: activeTagId }, cursor)}`,
+        buildUrl({ sectionId: activeSectionId, tagId: activeTagId, q: query }, cursor),
       );
       if (!response.ok) return;
 
@@ -103,7 +120,7 @@ export function LibraryView({
       inFlight.current = false;
       setIsLoading(false);
     }
-  }, [cursor, buildQuery, activeSectionId, activeTagId]);
+  }, [cursor, buildUrl, activeSectionId, activeTagId, query]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -153,7 +170,7 @@ export function LibraryView({
         <Logo className="size-14 sm:size-[94px]" />
 
         <div className="order-last w-full sm:order-none sm:flex sm:flex-1 sm:justify-center">
-          <SearchField />
+          <SearchField onSearch={(next) => void load(null, null, next)} />
         </div>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
@@ -176,15 +193,17 @@ export function LibraryView({
           tags={tags}
           activeSectionId={activeSectionId}
           activeTagId={activeTagId}
-          onSelectSection={(id) => void applyFilter(id, null)}
-          onSelectTag={(id) => void applyFilter(activeSectionId, activeTagId === id ? null : id)}
+          onSelectSection={(id) => void load(id, null, "")}
+          onSelectTag={(id) => void load(activeSectionId, activeTagId === id ? null : id, "")}
           onSectionsChanged={() => router.refresh()}
         />
 
         <div className="w-full min-w-0 flex-1">
           {items.length === 0 && !isLoading ? (
             <p className="text-muted pt-4 text-base">
-              Nothing saved here yet. Use the Save button, or the Cielo extension on any page.
+              {query
+                ? `Nothing matches “${query}”.`
+                : "Nothing saved here yet. Use the Save button, or the Cielo extension on any page."}
             </p>
           ) : (
             <div

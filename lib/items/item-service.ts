@@ -29,6 +29,12 @@ export interface ListItemsInput {
   limit?: number;
 }
 
+export interface SearchItemsInput {
+  q: string;
+  cursor?: string;
+  limit?: number;
+}
+
 export interface ListItemsResult {
   items: Awaited<ReturnType<typeof loadWithRelations>>[];
   nextCursor: string | null;
@@ -149,6 +155,68 @@ class ItemService {
     return {
       items,
       nextCursor: hasMore ? items[items.length - 1].savedAt.toISOString() : null,
+    };
+  }
+
+  /**
+   * Full-text search across an item's own words, its tag names and its url.
+   *
+   * The tsvector column is invisible to the Prisma client, so matching ids come
+   * from raw SQL and the rows themselves are then loaded through the client —
+   * which keeps the relation loading and the wire shape identical to list().
+   *
+   * Results stay newest-first rather than ranked by relevance, so the cursor
+   * contract is the same one /api/items uses.
+   */
+  async search(userId: string, input: SearchItemsInput): Promise<ListItemsResult> {
+    const query = input.q.trim();
+    const limit = Math.min(input.limit ?? DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+
+    if (!query) {
+      return { items: [], nextCursor: null };
+    }
+
+    const cursor = input.cursor ? new Date(input.cursor) : null;
+    // ILIKE needs its own wildcards; the parameter is still bound, not spliced.
+    const like = `%${query}%`;
+
+    const matches = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT i.id
+      FROM items i
+      WHERE i.user_id = ${userId}
+        AND (${cursor}::timestamp IS NULL OR i.saved_at < ${cursor}::timestamp)
+        AND (
+          i.search_vector @@ websearch_to_tsquery('english', ${query})
+          OR i.url ILIKE ${like}
+          OR EXISTS (
+            SELECT 1 FROM item_tags it
+            JOIN tags t ON t.id = it.tag_id
+            WHERE it.item_id = i.id AND t.name ILIKE ${like}
+          )
+        )
+      ORDER BY i.saved_at DESC
+      LIMIT ${limit + 1}
+    `;
+
+    if (matches.length === 0) {
+      return { items: [], nextCursor: null };
+    }
+
+    const hasMore = matches.length > limit;
+    const ids = (hasMore ? matches.slice(0, limit) : matches).map((row) => row.id);
+
+    const rows = await prisma.item.findMany({
+      where: { id: { in: ids } },
+      orderBy: { savedAt: "desc" },
+      include: {
+        sections: { include: { section: { select: { id: true, name: true } } } },
+        tags: { include: { tag: { select: { id: true, name: true } } } },
+      },
+    });
+
+    return {
+      items: rows,
+      nextCursor: hasMore ? rows[rows.length - 1].savedAt.toISOString() : null,
     };
   }
 

@@ -147,8 +147,18 @@ Used by: web app feed (masonry, infinite scroll, newest-first).
 
 ## GET /api/search
 
-Postgres full-text search over `items.search_vector` (title) unioned with a tag-name match.
-See `schema.prisma` bottom comment for the required raw SQL migration this depends on.
+**Implemented.** Postgres full-text search over `items.search_vector` (title +
+a highlight's captured `body`), plus a tag-name match and a url match. Applied
+by `prisma/manual-sql/006_search_vector.sql`.
+
+Uses `websearch_to_tsquery`, so a user can quote `"an exact phrase"` and use
+`or` / `-` the way they would in a search engine. Results stay **newest-first**
+rather than relevance-ranked, which keeps the cursor contract identical to
+`/api/items`. An empty or whitespace `q` returns an empty result set, not a
+`400` — the field starts empty and the UI should not have to special-case it.
+
+Search and the section/tag filters are alternatives: there is no `sectionId`
+parameter here, and issuing a query clears whatever filter was active.
 
 **Query params**
 
