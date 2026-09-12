@@ -222,3 +222,63 @@ body {
   pointer-events: none;
   z-index: -1;
 }
+
+/* Landing splash — mark spins in, wordmark rises, the panel clears itself.
+   CSS-only so there is no hydration flash and nothing to gate in JS. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  background: var(--color-ink);
+  animation: splash-out 450ms ease-in 1650ms forwards;
+}
+
+.splash-mark {
+  animation: splash-mark 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.splash-word {
+  animation: splash-word 600ms cubic-bezier(0.16, 1, 0.3, 1) 620ms both;
+}
+
+@keyframes splash-mark {
+  from {
+    opacity: 0;
+    /* A full turn that lands on the angle the mark wears everywhere else. */
+    transform: scale(0.4) rotate(-520.69deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(-160.69deg);
+  }
+}
+
+@keyframes splash-word {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes splash-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* No brand moment is worth making someone motion-sick. */
+@media (prefers-reduced-motion: reduce) {
+  .splash {
+    display: none;
+  }
+}

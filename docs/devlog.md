@@ -37,6 +37,40 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Landing splash and a welcome line
+
+**What:** A full page load of the landing now opens with a splash — the mark
+spins in, "Cielo" rises beneath it, the panel clears after ~2.1s — and the hero
+carries a "Welcome to Cielo" line above the headline.
+
+**Why:** Requested. The splash is on the landing route only; it never sits
+between a signed-in user and their library.
+
+**Decisions worth not relitigating:**
+
+- **CSS-only, no JS state.** A JS-gated splash has to decide whether to show
+  _during_ render, which either mismatches hydration or flashes the page before
+  covering it. An animation with `forwards` just plays and gets out of the way.
+- It plays on **every full page load**, not once per session. Client-side
+  navigation within the app does not retrigger it, so it stays a page-load
+  moment rather than something you hit repeatedly.
+- The spin lands on `-160.69deg` — the same angle the mark wears everywhere
+  else — so the splash resolves into the nav logo rather than snapping.
+- `prefers-reduced-motion` removes it entirely (`display: none`), not just the
+  animation. Content is in the DOM underneath the whole time.
+
+**Touched:** `components/landing/splash.tsx` (new), `app/page.tsx`,
+`app/globals.css`.
+
+**Verified:** caught mid-spin and at the wordmark, then confirmed it ends at
+`opacity: 0`, `visibility: hidden`, intercepting no pointer events, with
+`aria-hidden="true"`.
+
+**Follow-ups:** ~2.1s is a guess at the right length; shorten it in
+`globals.css` if it starts to feel long on repeat visits.
+
+---
+
 ## 2026-09-12 — Landing rebuilt; logo back to the exact accent green
 
 **What:** New landing composition — editorial hero with a soft accent wash and

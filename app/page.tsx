@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HeroCollage } from "@/components/landing/hero-collage";
 import { LandingNav } from "@/components/landing/landing-nav";
+import { Splash } from "@/components/landing/splash";
 import { ProcessMarquee } from "@/components/landing/process-marquee";
 
 /** What each section link in the navbar points at. */
@@ -27,10 +28,15 @@ const FEATURES = [
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
+      <Splash />
       <LandingNav />
 
       <main className="flex flex-1 flex-col items-center">
         <section className="hero-wash relative isolate flex flex-col items-center gap-7 px-5 pt-20 pb-14 text-center sm:px-6 sm:pt-28">
+          <p className="border-line bg-surface/70 text-muted rounded-full border px-4 py-1.5 text-[13px]">
+            Welcome to Cielo
+          </p>
+
           <h1 className="text-[64px] leading-[0.95] font-medium tracking-[-0.03em] text-balance sm:text-[88px] lg:text-[112px]">
             All your bookmarks
             <br />
