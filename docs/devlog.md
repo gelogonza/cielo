@@ -37,6 +37,40 @@ probably two changes.
 
 ---
 
+## 2026-09-12 — Backfill script for saves with no thumbnail
+
+**What:** `npm run backfill:thumbnails` re-scrapes items whose `thumbnail_url`
+is NULL and fills it using the new fallback chain. Supports `--dry-run` and
+`--limit=N`.
+
+**Why:** The fallback chain only helps _new_ saves; anything saved before it
+kept a blank card forever. Re-saving by hand does not scale past one item.
+
+**Safety:** It only ever fills a NULL — never replaces an existing thumbnail —
+and the write re-checks `thumbnailUrl: null` in its `where`, so a save that
+landed mid-run wins instead of being clobbered. Items with no `url` (direct
+uploads) are skipped since there is nothing to scrape. 500ms between pages so a
+backfill does not hammer one host. Re-running is a no-op.
+
+**Touched:** `scripts/backfill-thumbnails.ts`, `package.json`.
+
+**Worth knowing:** the script is bundled with esbuild (already a dep, same as
+the extension build) rather than run through a new TS runner — `@/` aliases are
+resolved with `--alias:@=.`. It must be bundled as **ESM**: the generated Prisma
+client uses `import.meta.url`, which is `undefined` once esbuild rewrites it to
+CJS, and the script dies before it starts.
+
+**Verified:** nulled a real row, ran `--dry-run` (reported, wrote nothing),
+ran for real (filled it), ran again (clean no-op). All 7 items in the live
+library now have a thumbnail.
+
+**Follow-ups:** Pinterest saves come back with the title "Pinterest" and
+sometimes its generic share image rather than the pin itself — the site serves
+placeholder metadata to logged-out scrapers. Per-platform scraping was rejected
+earlier as brittle; a screenshot thumbnail would sidestep it.
+
+---
+
 ## 2026-09-12 — Thumbnails for pages that publish no og:image
 
 **What:** Saves no longer land without a picture. Both extractors now fall

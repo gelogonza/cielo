@@ -15,7 +15,8 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "build:extension": "esbuild extension/src/content-script.js --bundle --format=iife --outfile=extension/content-script.js",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "backfill:thumbnails": "esbuild scripts/backfill-thumbnails.ts --bundle --platform=node --format=esm --packages=external --alias:@=. --outfile=node_modules/.cache/backfill-thumbnails.mjs && node node_modules/.cache/backfill-thumbnails.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
