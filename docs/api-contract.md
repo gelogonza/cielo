@@ -225,6 +225,11 @@ something into it by hand, it stays.
 unpaginated and uncached — a partial export is not an export, and the body is
 the user's entire library.
 
+**Streamed.** The library is walked a page of rows at a time and written out as
+it goes, so the response has no `Content-Length` and arrives chunked. Peak
+memory does not track the size of the library, and abandoning the download
+stops the walk.
+
 | Query    | Values           | Default |
 | -------- | ---------------- | ------- |
 | `format` | `json` \| `html` | `json`  |
@@ -254,6 +259,11 @@ under both — re-importing reunites the copies rather than duplicating the item
 
 Both responses carry `Content-Disposition: attachment` and
 `Cache-Control: no-store, private`.
+
+Because the body is streamed, an error that happens after the first chunk
+cannot change the status code — it truncates the file instead. `itemCount` is
+written in the JSON header before any item so a reader can tell a truncated
+file from a complete one.
 
 ---
 

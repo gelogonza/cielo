@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { buildBookmarksHtml } from "@/lib/export/build-export";
+import { bookmarksHtmlChunks, type BookmarkFolder } from "@/lib/export/build-export";
 import { parseBookmarkFile } from "@/lib/import/parse-bookmarks";
 import type { SerializedItem } from "@/lib/items/serialize";
 
@@ -45,9 +45,30 @@ const library: SerializedItem[] = [
   },
 ];
 
-describe("export → import round trip", () => {
-  const { html } = buildBookmarksHtml(library, exportedAt);
-  const parsed = parseBookmarkFile(html, "cielo-bookmarks-2026-09-19.html");
+async function* stream<T>(values: T[]): AsyncGenerator<T> {
+  for (const value of values) {
+    yield value;
+  }
+}
+
+/** Mirrors how the route groups the library: unfiled first, then sections. */
+const folders: BookmarkFolder[] = [
+  { name: null, items: stream(library.filter((i) => i.sections.length === 0)) },
+  { name: "Inspo", items: stream(library.filter((i) => i.sections.length > 0)) },
+];
+
+async function build() {
+  let html = "";
+
+  for await (const chunk of bookmarksHtmlChunks(stream(folders), { exportedAt })) {
+    html += chunk;
+  }
+
+  return parseBookmarkFile(html, "cielo-bookmarks-2026-09-19.html");
+}
+
+describe("export → import round trip", async () => {
+  const parsed = await build();
 
   // The importer runs every href through `new URL().href`, which adds the
   // empty path a bare origin omits. Items are stored with whatever URL they

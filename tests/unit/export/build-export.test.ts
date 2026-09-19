@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildBookmarksHtml,
-  buildJsonExport,
+  bookmarksHtmlChunks,
   exportFileName,
+  jsonExportChunks,
+  textStream,
+  type BookmarkFolder,
 } from "@/lib/export/build-export";
 import type { SerializedItem } from "@/lib/items/serialize";
 
@@ -11,7 +13,7 @@ const exportedAt = new Date("2026-09-19T12:00:00.000Z");
 function item(overrides: Partial<SerializedItem> = {}): SerializedItem {
   return {
     id: "item-1",
-    url: "https://mymind.com",
+    url: "https://mymind.com/",
     title: "mymind",
     body: null,
     thumbnailUrl: null,
@@ -26,11 +28,39 @@ function item(overrides: Partial<SerializedItem> = {}): SerializedItem {
   };
 }
 
-describe("buildJsonExport", () => {
-  it("is a self-describing envelope around the wire shape", () => {
-    const result = buildJsonExport([item()], exportedAt);
+/** The builders consume async iterables; the tests hand them arrays. */
+async function* stream<T>(values: T[]): AsyncGenerator<T> {
+  for (const value of values) {
+    yield value;
+  }
+}
 
-    expect(result).toEqual({
+async function collect(chunks: AsyncIterable<string>): Promise<string> {
+  let out = "";
+
+  for await (const chunk of chunks) {
+    out += chunk;
+  }
+
+  return out;
+}
+
+function json(items: SerializedItem[], itemCount = items.length) {
+  return collect(jsonExportChunks(stream(items), { exportedAt, itemCount }));
+}
+
+function html(folders: BookmarkFolder[]) {
+  return collect(bookmarksHtmlChunks(stream(folders), { exportedAt }));
+}
+
+/** Everything at the top level, which is what the JSON-shaped tests want. */
+function unfiled(items: SerializedItem[]): BookmarkFolder[] {
+  return [{ name: null, items: stream(items) }];
+}
+
+describe("jsonExportChunks", () => {
+  it("is a self-describing envelope around the wire shape", async () => {
+    expect(JSON.parse(await json([item()]))).toEqual({
       format: "cielo-export",
       version: 1,
       exportedAt: "2026-09-19T12:00:00.000Z",
@@ -39,141 +69,166 @@ describe("buildJsonExport", () => {
     });
   });
 
-  it("keeps items the bookmark format cannot hold", () => {
+  it("stays valid JSON across the chunk boundaries between items", async () => {
+    const parsed = JSON.parse(
+      await json([item(), item({ id: "item-2" }), item({ id: "item-3" })]),
+    );
+
+    expect(parsed.items.map((i: SerializedItem) => i.id)).toEqual([
+      "item-1",
+      "item-2",
+      "item-3",
+    ]);
+  });
+
+  it("keeps items the bookmark format cannot hold", async () => {
     // A highlight with no source: no URL, so no <A HREF> — JSON is the only
     // format that does not lose it.
     const highlight = item({ url: null, title: null, body: "a line worth keeping" });
-    const result = buildJsonExport([highlight], exportedAt);
 
-    expect(result.items[0].body).toBe("a line worth keeping");
+    expect(JSON.parse(await json([highlight])).items[0].body).toBe("a line worth keeping");
   });
 
-  it("reports an empty library honestly rather than failing", () => {
-    expect(buildJsonExport([], exportedAt)).toMatchObject({ itemCount: 0, items: [] });
+  it("reports an empty library honestly rather than failing", async () => {
+    expect(JSON.parse(await json([]))).toMatchObject({ itemCount: 0, items: [] });
+  });
+
+  it("writes the count before any item, so a reader knows what to expect", async () => {
+    const text = await json([item()]);
+
+    expect(text.indexOf('"itemCount"')).toBeLessThan(text.indexOf('"items"'));
   });
 });
 
-describe("buildBookmarksHtml", () => {
-  it("writes a file browsers recognise", () => {
-    const { html } = buildBookmarksHtml([item()], exportedAt);
+describe("bookmarksHtmlChunks", () => {
+  it("writes a file browsers recognise", async () => {
+    const text = await html(unfiled([item()]));
 
-    expect(html.startsWith("<!DOCTYPE NETSCAPE-Bookmark-file-1>")).toBe(true);
-    expect(html).toContain('<A HREF="https://mymind.com"');
+    expect(text.startsWith("<!DOCTYPE NETSCAPE-Bookmark-file-1>")).toBe(true);
+    expect(text).toContain('<A HREF="https://mymind.com/"');
+    expect(text.trimEnd().endsWith("</DL><p>")).toBe(true);
   });
 
-  it("records the original save time in seconds, not milliseconds", () => {
-    const { html } = buildBookmarksHtml([item()], exportedAt);
-
-    // 2026-09-12T10:00:00Z
-    expect(html).toContain(`ADD_DATE="${Date.parse("2026-09-12T10:00:00.000Z") / 1000}"`);
-  });
-
-  it("turns sections into folders", () => {
-    const { html } = buildBookmarksHtml(
-      [item({ sections: [{ id: "s1", name: "Inspo" }] })],
-      exportedAt,
+  it("records the original save time in seconds, not milliseconds", async () => {
+    expect(await html(unfiled([item()]))).toContain(
+      `ADD_DATE="${Date.parse("2026-09-12T10:00:00.000Z") / 1000}"`,
     );
-
-    expect(html).toContain("<H3");
-    expect(html).toContain(">Inspo</H3>");
   });
 
-  it("writes an item in two sections under both, because re-import reunites them", () => {
-    const { html } = buildBookmarksHtml(
-      [
-        item({
-          sections: [
-            { id: "s1", name: "Inspo" },
-            { id: "s2", name: "Reading" },
-          ],
-        }),
-      ],
-      exportedAt,
-    );
+  it("writes one folder per named group", async () => {
+    const text = await html([
+      { name: "Inspo", items: stream([item()]) },
+      { name: "Reading", items: stream([item({ id: "item-2" })]) },
+    ]);
 
-    expect(html).toContain(">Inspo</H3>");
-    expect(html).toContain(">Reading</H3>");
-    expect(html.match(/<A HREF="https:\/\/mymind\.com"/g)).toHaveLength(2);
+    expect(text).toContain(">Inspo</H3>");
+    expect(text).toContain(">Reading</H3>");
   });
 
-  it("leaves unfiled items at the top level", () => {
-    const { html } = buildBookmarksHtml([item()], exportedAt);
-
-    expect(html).not.toContain("<H3");
+  it("leaves unfiled items at the top level", async () => {
+    expect(await html(unfiled([item()]))).not.toContain("<H3");
   });
 
-  it("writes tags in the attribute our own importer reads back", () => {
-    const { html } = buildBookmarksHtml(
-      [
+  it("writes tags in the attribute our own importer reads back", async () => {
+    const text = await html(
+      unfiled([
         item({
           tags: [
             { id: "t1", name: "design" },
             { id: "t2", name: "type" },
           ],
         }),
-      ],
-      exportedAt,
+      ]),
     );
 
-    expect(html).toContain('TAGS="design,type"');
+    expect(text).toContain('TAGS="design,type"');
   });
 
-  it("omits the tags attribute entirely when there are none", () => {
-    expect(buildBookmarksHtml([item()], exportedAt).html).not.toContain("TAGS=");
+  it("omits the tags attribute entirely when there are none", async () => {
+    expect(await html(unfiled([item()]))).not.toContain("TAGS=");
   });
 
-  it("writes a note as the format's description field, flattened to one line", () => {
-    const { html } = buildBookmarksHtml([item({ note: "first line\n\nsecond line" })], exportedAt);
+  it("writes a note as the format's description field, flattened to one line", async () => {
+    const text = await html(unfiled([item({ note: "first line\n\nsecond line" })]));
 
-    expect(html).toContain("<DD>first line second line");
+    expect(text).toContain("<DD>first line second line");
   });
 
-  it("falls back to the highlight text when there is no note", () => {
-    const { html } = buildBookmarksHtml([item({ note: null, body: "a quote" })], exportedAt);
-
-    expect(html).toContain("<DD>a quote");
+  it("falls back to the highlight text when there is no note", async () => {
+    expect(await html(unfiled([item({ note: null, body: "a quote" })]))).toContain("<DD>a quote");
   });
 
-  it("falls back to the URL when an item has no title", () => {
-    const { html } = buildBookmarksHtml([item({ title: null })], exportedAt);
-
-    expect(html).toContain(">https://mymind.com</A>");
+  it("falls back to the URL when an item has no title", async () => {
+    expect(await html(unfiled([item({ title: null })]))).toContain(">https://mymind.com/</A>");
   });
 
-  it("escapes markup in titles, sections and urls so the file still parses", () => {
-    const { html } = buildBookmarksHtml(
-      [
-        item({
-          title: '<script>alert("x")</script> & more',
-          url: 'https://example.com/?a=1&b="2"',
-          sections: [{ id: "s1", name: "R&D <team>" }],
-        }),
-      ],
-      exportedAt,
+  it("escapes markup in titles, sections and urls so the file still parses", async () => {
+    const text = await html([
+      {
+        name: "R&D <team>",
+        items: stream([
+          item({
+            title: '<script>alert("x")</script> & more',
+            url: 'https://example.com/?a=1&b="2"',
+          }),
+        ]),
+      },
+    ]);
+
+    expect(text).not.toContain("<script>");
+    expect(text).toContain("&lt;script&gt;");
+    expect(text).toContain('HREF="https://example.com/?a=1&amp;b=&quot;2&quot;"');
+    expect(text).toContain(">R&amp;D &lt;team&gt;</H3>");
+  });
+
+  it("skips an item it cannot represent rather than writing a broken link", async () => {
+    const text = await html(
+      unfiled([item(), item({ id: "item-2", url: null, body: "a source-less highlight" })]),
     );
 
-    expect(html).not.toContain("<script>");
-    expect(html).toContain("&lt;script&gt;");
-    expect(html).toContain('HREF="https://example.com/?a=1&amp;b=&quot;2&quot;"');
-    expect(html).toContain(">R&amp;D &lt;team&gt;</H3>");
+    expect(text).not.toContain("source-less");
+    expect(text.match(/<A HREF=/g)).toHaveLength(1);
   });
 
-  it("counts the items it could not represent instead of dropping them silently", () => {
-    const { html, omitted } = buildBookmarksHtml(
-      [item(), item({ id: "item-2", url: null, body: "a source-less highlight" })],
-      exportedAt,
-    );
+  it("produces a valid empty file for an empty library", async () => {
+    const text = await html([{ name: null, items: stream([]) }]);
 
-    expect(omitted).toBe(1);
-    expect(html).not.toContain("source-less");
+    expect(text).toContain("<DL><p>");
+    expect(text).not.toContain("<A HREF");
+  });
+});
+
+describe("textStream", () => {
+  it("encodes the chunks as the response body", async () => {
+    const body = textStream(stream(["one ", "two ", "three"]));
+
+    expect(await new Response(body).text()).toBe("one two three");
   });
 
-  it("produces a valid empty file for an empty library", () => {
-    const { html, omitted } = buildBookmarksHtml([], exportedAt);
+  it("stops the walk when the reader goes away mid-download", async () => {
+    let pulled = 0;
+    let closed = false;
 
-    expect(omitted).toBe(0);
-    expect(html).toContain("<DL><p>");
-    expect(html).not.toContain("<A HREF");
+    async function* counted() {
+      try {
+        for (;;) {
+          pulled += 1;
+          yield "chunk";
+        }
+      } finally {
+        closed = true;
+      }
+    }
+
+    const reader = textStream(counted()).getReader();
+    await reader.read();
+    await reader.cancel();
+
+    expect(closed).toBe(true);
+    // The generator is not left paging through the rest of the library.
+    const seen = pulled;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(pulled).toBe(seen);
   });
 });
 

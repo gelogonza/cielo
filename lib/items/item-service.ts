@@ -76,6 +76,52 @@ export interface ListItemsResult {
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 50;
 
+/**
+ * Rows per round trip while walking the library for an export. Larger than a
+ * feed page because nobody is waiting on the first paint, small enough that
+ * memory does not track the size of the library.
+ */
+export const EXPORT_BATCH_SIZE = 500;
+
+/**
+ * Which slice of the library an export walk covers. `{}` is everything (the
+ * JSON export); the bookmark file asks for one folder at a time.
+ */
+export type ExportScope =
+  | Record<string, never>
+  | { sectionId: string }
+  /** Items in no section at all — the top level of a bookmark file. */
+  | { unfiled: true };
+
+/** One page of the walk. Split out so `exportItems` can name its yield type. */
+function loadExportPage(userId: string, scope: ExportScope, cursor: string | null) {
+  return prisma.item.findMany({
+    where: { userId, ...exportScopeFilter(scope) },
+    orderBy: [{ savedAt: "desc" }, { id: "desc" }],
+    take: EXPORT_BATCH_SIZE,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    include: {
+      sections: { include: { section: { select: { id: true, name: true } } } },
+      tags: { include: { tag: { select: { id: true, name: true } } } },
+      note: { select: { body: true } },
+    },
+  });
+}
+
+export type ExportRow = Awaited<ReturnType<typeof loadExportPage>>[number];
+
+function exportScopeFilter(scope: ExportScope) {
+  if ("sectionId" in scope) {
+    return { sections: { some: { sectionId: scope.sectionId } } };
+  }
+
+  if ("unfiled" in scope) {
+    return { sections: { none: {} } };
+  }
+
+  return {};
+}
+
 async function loadWithRelations(itemId: string) {
   return prisma.item.findUniqueOrThrow({
     where: { id: itemId },
@@ -488,22 +534,34 @@ class ItemService {
   }
 
   /**
-   * Every item the user has, with everything attached to it, oldest last.
+   * Walks every item the user has, newest first, one page of rows at a time.
    *
-   * Deliberately unpaginated: this backs the export, and an export that stops
-   * at a page boundary is not an export. Notes are included here and nowhere
-   * else in a list query, because the JSON export is meant to be lossless.
+   * The export is the only read with no limit — an export that stops at a page
+   * boundary is not an export — so it yields rather than returning an array,
+   * and the route streams it out. A library of any size costs one page of rows
+   * in memory. Notes are included here and nowhere else in a list query,
+   * because the JSON export is meant to be lossless.
+   *
+   * Ordered by `[savedAt, id]` and paged with an id cursor, not a `savedAt <`
+   * comparison: a bulk import can give many rows the same timestamp, and a
+   * timestamp cursor would step straight over the ties.
    */
-  async exportAll(userId: string) {
-    return prisma.item.findMany({
-      where: { userId },
-      orderBy: { savedAt: "desc" },
-      include: {
-        sections: { include: { section: { select: { id: true, name: true } } } },
-        tags: { include: { tag: { select: { id: true, name: true } } } },
-        note: { select: { body: true } },
-      },
-    });
+  async *exportItems(userId: string, scope: ExportScope = {}): AsyncGenerator<ExportRow> {
+    let cursor: string | null = null;
+
+    for (;;) {
+      const rows = await loadExportPage(userId, scope, cursor);
+
+      for (const row of rows) {
+        yield row;
+      }
+
+      if (rows.length < EXPORT_BATCH_SIZE) {
+        return;
+      }
+
+      cursor = rows[rows.length - 1].id;
+    }
   }
 
   async get(userId: string, itemId: string) {

@@ -37,6 +37,50 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — Stream the export instead of building it in memory
+
+**What:** `GET /api/export` now walks the library a page of rows at a time and
+writes the file out as it goes. `itemService.exportAll` is gone; `exportItems`
+is an async generator, and `build-export.ts` emits chunks rather than returning
+a string. The response is chunked, with no `Content-Length`.
+
+**Why:** the whole file was assembled in memory before the response started —
+fine at 14 items, not at tens of thousands. It was the follow-up left on the
+export entry.
+
+**Decisions worth not relitigating:**
+
+- **The bookmark file is grouped by querying per section**, not by loading
+  everything and bucketing it: unfiled items first, then one query per
+  non-empty section. An empty section is skipped, since a folder that imports
+  as nothing is just noise.
+- **`[savedAt, id]` ordering with an id cursor**, not `savedAt <`. A bulk
+  import gives many rows the same timestamp, and a timestamp cursor steps
+  straight over the ties — it would have silently dropped items from the
+  export.
+- **`itemCount` is still written in the JSON header**, which costs one extra
+  count query. Worth it: it is how a reader tells a truncated file from a
+  complete one, and a streamed body cannot signal failure with a status code.
+- **`cancel` closes the generator**, so navigating away mid-download stops the
+  walk rather than paging through a library nobody is waiting for.
+
+**Touched:** `lib/export/build-export.ts` (rewritten as generators, plus
+`textStream`), `lib/items/item-service.ts` (`exportItems`, `ExportScope`),
+`app/api/export/route.ts`, `docs/api-contract.md`, tests.
+
+**Verified:** 403 tests, including that the body arrives before the walk
+finishes and that cancelling stops it. Live: the JSON export comes back
+`transfer-encoding: chunked` with no `Content-Length`, the header in its own
+chunk ahead of the items, 14 of 14 items and valid JSON. The HTML export still
+round-trips — 13 anchors, 3 folders, tags intact, re-import 0 imported /
+13 reused / 0 duplicates.
+
+**Follow-ups:** The JSON walk and the count are two queries, so an item saved
+between them makes `itemCount` off by one. Harmless for a snapshot of your own
+library; a serializable transaction would fix it if it ever mattered.
+
+---
+
 ## 2026-09-19 — One url normalization for save and import
 
 **What:** `lib/url/normalize-url.ts` is now the single place a url is turned

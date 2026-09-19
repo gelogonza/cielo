@@ -3,27 +3,41 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const user = { id: "user-1", email: "person@example.com" };
 const getSessionUser = vi.fn(async () => user as typeof user | null);
-const exportAll = vi.fn();
+const exportItems = vi.fn();
+const countAll = vi.fn();
+const listSections = vi.fn();
 
 vi.mock("@/lib/auth/session", () => ({ getSessionUser }));
-vi.mock("@/lib/items/item-service", () => ({ itemService: { exportAll } }));
+vi.mock("@/lib/items/item-service", () => ({ itemService: { exportItems, countAll } }));
+vi.mock("@/lib/sections/section-service", () => ({
+  sectionService: { list: listSections },
+}));
 
 const { GET } = await import("@/app/api/export/route");
 
-const storedItem = {
-  id: "item-1",
-  url: "https://mymind.com",
-  title: "mymind",
-  body: null,
-  thumbnailUrl: null,
-  contentType: "LINK",
-  sourceType: "WEB",
-  sourcePlatform: "web",
-  savedAt: new Date("2026-09-12T10:00:00.000Z"),
-  sections: [{ section: { id: "s1", name: "Inspo" } }],
-  tags: [{ tag: { id: "t1", name: "design" } }],
-  note: { body: "the reference" },
-};
+function row(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "item-1",
+    url: "https://mymind.com/",
+    title: "mymind",
+    body: null,
+    thumbnailUrl: null,
+    contentType: "LINK",
+    sourceType: "WEB",
+    sourcePlatform: "web",
+    savedAt: new Date("2026-09-12T10:00:00.000Z"),
+    sections: [{ section: { id: "s1", name: "Inspo" } }],
+    tags: [{ tag: { id: "t1", name: "design" } }],
+    note: { body: "the reference" },
+    ...overrides,
+  };
+}
+
+async function* stream<T>(values: T[]): AsyncGenerator<T> {
+  for (const value of values) {
+    yield value;
+  }
+}
 
 function get(query = "") {
   return GET(new NextRequest(`http://localhost/api/export${query}`), {});
@@ -31,8 +45,13 @@ function get(query = "") {
 
 beforeEach(() => {
   getSessionUser.mockResolvedValue(user);
-  exportAll.mockReset();
-  exportAll.mockResolvedValue([storedItem]);
+  exportItems.mockReset();
+  countAll.mockReset();
+  listSections.mockReset();
+
+  exportItems.mockImplementation(() => stream([row()]));
+  countAll.mockResolvedValue(1);
+  listSections.mockResolvedValue([{ id: "s1", name: "Inspo", itemCount: 1 }]);
 });
 
 describe("GET /api/export", () => {
@@ -53,7 +72,7 @@ describe("GET /api/export", () => {
 
     expect(items[0]).toMatchObject({
       id: "item-1",
-      url: "https://mymind.com",
+      url: "https://mymind.com/",
       savedAt: "2026-09-12T10:00:00.000Z",
       sections: [{ id: "s1", name: "Inspo" }],
       tags: [{ id: "t1", name: "design" }],
@@ -61,11 +80,38 @@ describe("GET /api/export", () => {
     });
   });
 
+  it("walks the whole library for the JSON file, with no scope", async () => {
+    await (await get()).text();
+
+    expect(exportItems).toHaveBeenCalledTimes(1);
+    expect(exportItems).toHaveBeenCalledWith("user-1", undefined);
+  });
+
   it("returns bookmark HTML when asked for it", async () => {
     const response = await get("?format=html");
 
     expect(response.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
     expect(await response.text()).toContain("<!DOCTYPE NETSCAPE-Bookmark-file-1>");
+  });
+
+  it("asks for unfiled items and then one query per section", async () => {
+    await (await get("?format=html")).text();
+
+    expect(exportItems).toHaveBeenNthCalledWith(1, "user-1", { unfiled: true });
+    expect(exportItems).toHaveBeenNthCalledWith(2, "user-1", { sectionId: "s1" });
+  });
+
+  it("skips an empty section instead of writing a folder that imports as nothing", async () => {
+    listSections.mockResolvedValue([
+      { id: "s1", name: "Inspo", itemCount: 1 },
+      { id: "s2", name: "Empty", itemCount: 0 },
+    ]);
+
+    const text = await (await get("?format=html")).text();
+
+    expect(text).toContain(">Inspo</H3>");
+    expect(text).not.toContain(">Empty</H3>");
+    expect(exportItems).toHaveBeenCalledTimes(2);
   });
 
   it("sends both formats as a download with a dated filename", async () => {
@@ -76,7 +122,9 @@ describe("GET /api/export", () => {
       const disposition = (await get(query)).headers.get("Content-Disposition");
 
       expect(disposition).toMatch(
-        new RegExp(`^attachment; filename="cielo-(bookmarks-)?\\d{4}-\\d{2}-\\d{2}\\.${extension}"$`),
+        new RegExp(
+          `^attachment; filename="cielo-(bookmarks-)?\\d{4}-\\d{2}-\\d{2}\\.${extension}"$`,
+        ),
       );
     }
   });
@@ -89,13 +137,7 @@ describe("GET /api/export", () => {
     const response = await get("?format=csv");
 
     expect(response.status).toBe(400);
-    expect(exportAll).not.toHaveBeenCalled();
-  });
-
-  it("exports only the signed-in user's library", async () => {
-    await get();
-
-    expect(exportAll).toHaveBeenCalledWith("user-1");
+    expect(exportItems).not.toHaveBeenCalled();
   });
 
   it("refuses when signed out, without touching the database", async () => {
@@ -104,13 +146,40 @@ describe("GET /api/export", () => {
     const response = await get();
 
     expect(response.status).toBe(401);
-    expect(exportAll).not.toHaveBeenCalled();
+    expect(exportItems).not.toHaveBeenCalled();
+    expect(countAll).not.toHaveBeenCalled();
   });
 
   it("returns an empty but valid file for an empty library", async () => {
-    exportAll.mockResolvedValue([]);
+    exportItems.mockImplementation(() => stream([]));
+    countAll.mockResolvedValue(0);
+    listSections.mockResolvedValue([]);
 
     expect(await (await get()).json()).toMatchObject({ itemCount: 0, items: [] });
     expect(await (await get("?format=html")).text()).toContain("<DL><p>");
+  });
+
+  it("streams rather than buffering — the body arrives before the walk finishes", async () => {
+    let released: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      released = resolve;
+    });
+
+    exportItems.mockImplementation(async function* () {
+      yield row();
+      await gate;
+      yield row({ id: "item-2" });
+    });
+    countAll.mockResolvedValue(2);
+
+    const response = await get();
+    const reader = response.body!.getReader();
+
+    // The header is readable while the second row is still blocked.
+    const first = new TextDecoder().decode((await reader.read()).value);
+    expect(first).toContain('"format": "cielo-export"');
+
+    released!();
+    await reader.cancel();
   });
 });
