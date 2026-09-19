@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SectionRow } from "./section-row";
 
 export interface SidebarSection {
   id: string;
@@ -42,6 +43,7 @@ export function Sidebar({
 }) {
   const [isCreating, setIsCreating] = useState(false);
   const [draftName, setDraftName] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   async function createSection() {
     const name = draftName.trim();
@@ -52,14 +54,58 @@ export function Sidebar({
       return;
     }
 
-    const response = await fetch("/api/sections", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
+    await send("/api/sections", { method: "POST", body: { name } }, "Could not add that section.");
+  }
 
-    if (response.ok) {
+  async function renameSection(id: string, name: string) {
+    await send(
+      `/api/sections/${id}`,
+      { method: "PATCH", body: { name } },
+      "Could not rename that section.",
+    );
+  }
+
+  async function deleteSection(id: string) {
+    // The feed is still filtered on a section that no longer exists, so fall
+    // back to General before the sidebar re-renders without it.
+    if (activeSectionId === id) {
+      onSelectSection(null);
+    }
+
+    await send(`/api/sections/${id}`, { method: "DELETE" }, "Could not delete that section.");
+  }
+
+  /**
+   * Every section write goes through here: refetch on success so the sidebar
+   * shows the server's truth rather than an optimistic guess, and say so when
+   * it fails instead of appearing to do nothing.
+   */
+  async function send(
+    url: string,
+    init: { method: string; body?: unknown },
+    failure: string,
+  ) {
+    setError(null);
+
+    try {
+      const response = await fetch(url, {
+        method: init.method,
+        ...(init.body
+          ? {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(init.body),
+            }
+          : {}),
+      });
+
+      if (!response.ok) {
+        setError(failure);
+        return;
+      }
+
       onSectionsChanged();
+    } catch {
+      setError(failure);
     }
   }
 
@@ -91,6 +137,8 @@ export function Sidebar({
               count={section.itemCount}
               active={activeSectionId === section.id}
               onSelect={() => onSelectSection(section.id)}
+              onRename={(name) => renameSection(section.id, name)}
+              onDelete={() => deleteSection(section.id)}
             />
           ))}
 
@@ -123,6 +171,12 @@ export function Sidebar({
         </div>
       </div>
 
+      {error && (
+        <p role="alert" className="mt-2 hidden px-[18px] text-[13px] text-red-600 lg:block">
+          {error}
+        </p>
+      )}
+
       <a
         href="/import"
         className="text-muted hover:text-primary-text rounded-row mt-2 hidden h-[38px] shrink-0 items-center px-[18px] text-sm transition lg:flex"
@@ -150,31 +204,5 @@ export function Sidebar({
         ))}
       </div>
     </nav>
-  );
-}
-
-function SectionRow({
-  name,
-  count,
-  active,
-  onSelect,
-}: {
-  name: string;
-  count: number;
-  active: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-current={active ? "true" : undefined}
-      className={`rounded-row flex h-[46px] shrink-0 items-center gap-2 px-[18px] whitespace-nowrap transition lg:w-full lg:justify-between lg:gap-0 ${
-        active ? "bg-accent text-accent-contrast" : "text-primary-text hover:bg-ink"
-      }`}
-    >
-      <span className={`text-base ${active ? "font-medium" : ""}`}>{name}</span>
-      <span className={`text-sm ${active ? "" : "text-muted"}`}>{count}</span>
-    </button>
   );
 }

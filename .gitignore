@@ -46,3 +46,6 @@ next-env.d.ts
 
 # extension (bundled content script — regenerated via `npm run build:extension`)
 /extension/content-script.js
+
+# extension (packaged for loading/upload — rebuild with `zip -r extension.zip extension`)
+/extension.zip

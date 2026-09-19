@@ -37,6 +37,54 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — Rename and delete a section from the sidebar
+
+**What:** Each section row has a `···` menu with Rename and Delete. Rename
+turns the row into an input; Delete asks first, and says what happens to the
+items. The routes have existed since the start — this is the UI for them.
+
+**Why:** sections are entirely user-named, so a name you could set once and
+never change was the largest functional hole left. An import that guesses a
+folder name made it worse.
+
+**Decisions worth not relitigating:**
+
+- **The menu replaces the count on hover/focus** instead of sitting beside it.
+  A permanent control on every row would widen the mobile chip strip and put a
+  delete button under every thumb, for something you do once a month.
+- **Desktop only** (`hidden lg:flex`), like the Import and export link above
+  it. The mobile sidebar is a filter strip.
+- **The confirm step says where the items go**, and counts them: "Delete Type?
+  The 2 items in it stay in your library." Deleting a section drops the join
+  rows, not the items, and "delete" reads as losing everything in it otherwise.
+  Escape leaves the confirm step, so a delete takes a deliberate second click.
+- **The menu spans the row rather than sizing to its content.** The sidebar is
+  an `overflow-auto` column, so anything wider is clipped at its edge — which
+  is exactly what the first version did.
+- **No optimistic update.** Every write refetches through `onSectionsChanged`,
+  and a failure says so rather than appearing to do nothing. Deleting the
+  section you are filtering by falls back to General first, so the feed is not
+  left filtered on an id that no longer exists.
+
+**Touched:** `components/library/section-row.tsx` (new — lifted out of
+`sidebar.tsx`), `components/library/sidebar.tsx`.
+
+**Verified:** live, against the real library. Create, rename (exact value round
+-trips), and delete of a throwaway section, deleted while it was the active
+filter: the sidebar fell back to General, the feed reloaded, the other three
+sections and all 14 items were untouched. Confirm copy checked at 0, 1 and 2
+items. Mobile still shows plain chips with counts. 403 tests, type-check and
+lint pass.
+
+**Follow-ups:** No component tests — this repo has no React testing setup, and
+adding one for this was more than the change warranted; the routes underneath
+are covered. Renaming to a name another section already has is allowed, because
+`Section` has no unique constraint on `(userId, name)` — an import reuses a
+section by name, so two sections called "Design" would be confusing but not
+broken.
+
+---
+
 ## 2026-09-19 — Stream the export instead of building it in memory
 
 **What:** `GET /api/export` now walks the library a page of rows at a time and
