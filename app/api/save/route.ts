@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuth } from "@/lib/auth/with-auth";
 import { itemService } from "@/lib/items/item-service";
+import { normalizeUrl } from "@/lib/url/normalize-url";
 
 const CONTENT_TYPES = ["LINK", "IMAGE", "VIDEO", "CAROUSEL", "TEXT"] as const;
 const SOURCE_PLATFORMS = ["tiktok", "instagram", "x", "web"] as const;
@@ -9,8 +10,19 @@ const SOURCE_PLATFORMS = ["tiktok", "instagram", "x", "web"] as const;
 const saveLinkSchema = z
   .object({
     // Nullable so a highlight can be saved without a source page; every other
-    // kind of save still needs one.
-    url: z.string().trim().min(1).nullable().optional().default(null),
+    // kind of save still needs one. Stored in normal form, so the same address
+    // spelled two ways is one item — see lib/url/normalize-url.ts.
+    url: z
+      .string()
+      .trim()
+      .min(1)
+      .nullable()
+      .optional()
+      .default(null)
+      .refine((value) => value === null || normalizeUrl(value) !== null, {
+        message: "url must be an http(s) address",
+      })
+      .transform((value) => (value === null ? null : normalizeUrl(value))),
     title: z.string().nullable().optional().default(null),
     // The captured text of a highlight (contentType TEXT).
     body: z.string().trim().min(1).nullable().optional().default(null),

@@ -169,4 +169,31 @@ describe("POST /api/save — highlights", () => {
 
     expect(response.status).toBe(400);
   });
+
+  it("stores the url in normal form, so two spellings are one item", async () => {
+    saveLink.mockResolvedValue({ item: savedItem, reused: false });
+
+    await POST(request({ ...validBody, url: "HTTPS://Example.com" }), {});
+
+    expect(saveLink).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ url: "https://example.com/" }),
+    );
+  });
+
+  it("keeps the text fragment that makes two highlights two items", async () => {
+    saveLink.mockResolvedValue({ item: savedItem, reused: false });
+
+    const url = "https://example.com/p#:~:text=Remember%20everything.";
+    await POST(request({ url, contentType: "TEXT", body: "Remember everything." }), {});
+
+    expect(saveLink).toHaveBeenCalledWith("user-1", expect.objectContaining({ url }));
+  });
+
+  it("rejects a url Cielo could never open", async () => {
+    const response = await POST(request({ ...validBody, url: "javascript:void(0)" }), {});
+
+    expect(response.status).toBe(400);
+    expect(saveLink).not.toHaveBeenCalled();
+  });
 });

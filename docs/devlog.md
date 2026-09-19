@@ -37,6 +37,50 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — One url normalization for save and import
+
+**What:** `lib/url/normalize-url.ts` is now the single place a url is turned
+into the form Cielo stores and dedupes on, used by `saveLink`, `importMany` and
+the bookmark parser. `POST /api/save` rejects a url that is not http(s) (`400`);
+an import entry that is not gets dropped. `npm run backfill:urls` rewrites rows
+saved before this existed.
+
+**Why:** the stored string is the item's identity under `unique(user_id, url)`.
+Imports ran every href through `new URL().href`; saves stored whatever they were
+handed. So `https://x.com` and `https://x.com/` were two rows, and re-importing
+your own export duplicated your library — the follow-up left on the export
+entry.
+
+**Decisions worth not relitigating:**
+
+- **`URL.href` is the normal form, and nothing is stripped.** No dropping `utm_`
+  params or trailing slashes by hand: the query string is sometimes the whole
+  address (`?v=…`), and the `#:~:text=` fragment is exactly what makes two
+  highlights from one page two items.
+- **Normalized in the service, validated at the route.** The service is what
+  every caller shares, so that is where the stored form is decided; a url it
+  cannot normalize is kept as-is rather than silently turning a link into a
+  sourceless quote. Routes reject those before it gets that far.
+- **A backfill script, not SQL.** Normalizing needs a URL parser. Where two
+  rows collapse onto one address the script merges them — oldest survives,
+  sections, tags and note move across, notes are joined rather than one being
+  dropped.
+
+**Touched:** `lib/url/normalize-url.ts` and `scripts/normalize-urls.ts` (new),
+`lib/items/item-service.ts`, `lib/import/parse-bookmarks.ts`,
+`app/api/save/route.ts`, `docs/api-contract.md`, `package.json`, tests.
+
+**Verified:** 21 new tests. Run against the real library: 3 rows rewritten, 0
+merged, and a second run finds nothing. Re-importing Cielo's own export is now
+a complete no-op — 13 entries sent, 0 imported, 13 reused, 0 duplicates, which
+is the bug this closes. Type-check, lint and 397 tests pass.
+
+**Follow-ups:** `items.url` has no database-level check that it is normalized,
+so a direct SQL insert can still put an odd string there. The backfill has to
+be re-run if that ever happens.
+
+---
+
 ## 2026-09-19 — Export your whole library, in two formats
 
 **What:** `GET /api/export?format=json|html` returns the entire library as a

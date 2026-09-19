@@ -253,3 +253,57 @@ describe("ItemService.removeMany", () => {
     await expect(itemService.removeMany("user-1", ["mine", "theirs"])).resolves.toBe(1);
   });
 });
+
+describe("ItemService.importMany — url normalization", () => {
+  it("collapses two spellings of one address into a single row", async () => {
+    // The case that made re-importing your own export duplicate your library.
+    const result = await itemService.importMany("user-1", [
+      entry("https://mymind.com"),
+      entry("https://mymind.com/"),
+    ]);
+
+    expect(result.imported).toBe(1);
+    expect(item.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: [expect.objectContaining({ url: "https://mymind.com/" })] }),
+    );
+  });
+
+  it("matches an item that was saved with the other spelling", async () => {
+    item.findMany.mockResolvedValue([{ id: "item-1", url: "https://mymind.com/" }]);
+
+    const result = await itemService.importMany("user-1", [entry("https://mymind.com")]);
+
+    expect(result).toMatchObject({ imported: 0, reused: 1 });
+    expect(item.createMany).not.toHaveBeenCalled();
+  });
+
+  it("looks the entry up under its normalized url", async () => {
+    await itemService.importMany("user-1", [entry("HTTPS://MyMind.com")]);
+
+    expect(item.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "user-1", url: { in: ["https://mymind.com/"] } },
+      }),
+    );
+  });
+
+  it("drops an entry that is not a savable address", async () => {
+    const result = await itemService.importMany("user-1", [
+      entry("https://mymind.com/"),
+      entry("javascript:void(0)"),
+      entry("place:sort=8"),
+    ]);
+
+    expect(result.imported).toBe(1);
+  });
+
+  it("creates no sections for a file where every entry is junk", async () => {
+    const result = await itemService.importMany("user-1", [
+      entry("javascript:void(0)", { folder: "Bookmarklets" }),
+    ]);
+
+    expect(result).toMatchObject({ imported: 0, reused: 0, sectionsCreated: 0 });
+    expect(section.createMany).not.toHaveBeenCalled();
+    expect(item.createMany).not.toHaveBeenCalled();
+  });
+});

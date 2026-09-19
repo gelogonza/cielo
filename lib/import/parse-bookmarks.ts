@@ -12,6 +12,8 @@
  * Parsing happens in the browser: the file never leaves the machine until the
  * user confirms, the preview is instant, and the upload can be chunked.
  */
+import { normalizeUrl } from "@/lib/url/normalize-url";
+
 export interface ParsedBookmark {
   url: string;
   title: string | null;
@@ -49,19 +51,13 @@ function toResult(bookmarks: ParsedBookmark[], skipped: number): ParseResult {
   return { bookmarks, folders, skipped };
 }
 
-/** Only http(s) is savable; exports are full of javascript: and place: junk. */
-function usableUrl(href: string | null | undefined): string | null {
-  if (!href) {
-    return null;
-  }
-
-  try {
-    const url = new URL(href.trim());
-    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
-  } catch {
-    return null;
-  }
-}
+/**
+ * Only http(s) is savable; exports are full of javascript: and place: junk.
+ *
+ * Shared with the save path so a parsed bookmark and a saved link agree on the
+ * spelling of the same address — see lib/url/normalize-url.ts.
+ */
+const usableUrl = normalizeUrl;
 
 /** Exports record seconds; Date wants milliseconds. */
 function toIso(addDate: string | null | undefined): string | null {

@@ -160,3 +160,72 @@ describe("ItemService.saveLink", () => {
     expect(itemTag.createMany).not.toHaveBeenCalled();
   });
 });
+
+describe("ItemService.saveLink — url normalization", () => {
+  beforeEach(() => {
+    for (const mock of [
+      item.findUnique,
+      item.create,
+      item.findUniqueOrThrow,
+      section.findMany,
+      itemSection.createMany,
+      itemTag.createMany,
+      findOrCreateTag,
+      scrapeUrl,
+    ]) {
+      mock.mockReset();
+    }
+
+    section.findMany.mockResolvedValue([]);
+    item.findUniqueOrThrow.mockResolvedValue(loadedItem);
+    item.findUnique.mockResolvedValue(null);
+    item.create.mockResolvedValue({ id: "item-1" });
+  });
+
+  it("dedupes against the normalized url, not the one it was handed", async () => {
+    // A save of "https://mymind.com" must find the row stored as
+    // "https://mymind.com/" — this is what import already did and save did not.
+    await itemService.saveLink("user-1", { ...baseInput, url: "https://mymind.com" });
+
+    expect(item.findUnique).toHaveBeenCalledWith({
+      where: { unique_user_url: { userId: "user-1", url: "https://mymind.com/" } },
+    });
+  });
+
+  it("stores the normalized url", async () => {
+    await itemService.saveLink("user-1", { ...baseInput, url: "HTTPS://MyMind.com:443" });
+
+    expect(item.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ url: "https://mymind.com/" }),
+      }),
+    );
+  });
+
+  it("leaves a sourceless highlight sourceless", async () => {
+    await itemService.saveLink("user-1", {
+      ...baseInput,
+      url: null,
+      body: "a line worth keeping",
+      contentType: "TEXT",
+    });
+
+    expect(item.findUnique).not.toHaveBeenCalled();
+    expect(item.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ url: null, sourceType: "DIRECT" }),
+      }),
+    );
+  });
+
+  it("keeps a url it cannot normalize rather than turning a link into a quote", async () => {
+    // Routes reject these; this only covers a caller that did not.
+    await itemService.saveLink("user-1", { ...baseInput, url: "not a url" });
+
+    expect(item.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ url: "not a url", sourceType: "WEB" }),
+      }),
+    );
+  });
+});

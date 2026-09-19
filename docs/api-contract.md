@@ -37,6 +37,12 @@ Used by: extension (Tier 1 rich scrape, Tier 2 fallback) and web app (Tier 2 man
   item — and "Visit original" scrolls straight to the quote.
 - A `TEXT` save is never scraped: the quote is the content, so there is nothing
   a fetch of the page could add.
+- `url` is stored in **normal form** (`lib/url/normalize-url.ts`): lowercased
+  scheme and host, default port dropped, empty path written as `/`. So
+  `https://x.com` and `https://x.com/` are one item, not two, and a save finds
+  a row an import created and vice versa. Nothing is stripped — the query
+  string and the `#:~:text=` fragment are both load-bearing. A `url` that is
+  not an http(s) address is a `400`.
 
 - If `thumbnailUrl` is `null`, the server falls back to `/api/scrape` internally before writing the item.
 - If `(userId, url)` already exists, the existing item is reused — no new row is created. `sectionIds`
@@ -177,6 +183,11 @@ export reports progress instead of hanging on one request.
 - `savedAt` is preserved, so the feed's order reflects when things were
   originally saved rather than when they were migrated.
 - Existing urls are left untouched rather than duplicated or overwritten.
+  Matching is done on the **normalized** url, the same one `POST /api/save`
+  stores, so an entry matches an item however either was originally spelled.
+  Re-importing a Cielo export is therefore a no-op.
+- An entry whose `url` is not an http(s) address is dropped rather than stored
+  — exports are full of `javascript:` bookmarklets and `place:` smart folders.
 - Imported items are **not scraped** — they arrive with no thumbnail, which is
   what `npm run backfill:thumbnails` fills in afterwards.
 

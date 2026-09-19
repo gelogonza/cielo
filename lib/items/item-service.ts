@@ -4,6 +4,7 @@ import type { ContentType } from "@/lib/generated/prisma/client";
 import { detectPlatform } from "@/lib/items/platform";
 import { scrapeUrl } from "@/lib/scrape/scrape-url";
 import { tagService } from "@/lib/tags/tag-service";
+import { normalizeUrl } from "@/lib/url/normalize-url";
 
 export interface SaveLinkInput {
   /** Null only for a highlight saved without a source page. */
@@ -87,15 +88,22 @@ async function loadWithRelations(itemId: string) {
 
 class ItemService {
   async saveLink(userId: string, input: SaveLinkInput): Promise<SaveLinkResult> {
+    // The stored url is the item's identity under unique(user_id, url), so it
+    // is normalized here rather than at each caller. Routes reject a url that
+    // cannot be normalized; the fallback only covers a caller that did not,
+    // because turning a link into a sourceless item would be worse than
+    // storing an odd string.
+    const url = input.url ? (normalizeUrl(input.url) ?? input.url) : null;
+
     // A quote with no source has no url to dedup on, and Postgres treats NULL
     // as distinct under unique(user_id, url) — so each one is its own item.
-    const existing = input.url
+    const existing = url
       ? await prisma.item.findUnique({
-          where: { unique_user_url: { userId, url: input.url } },
+          where: { unique_user_url: { userId, url } },
         })
       : null;
 
-    const itemId = existing ? existing.id : await this.createItem(userId, input);
+    const itemId = existing ? existing.id : await this.createItem(userId, { ...input, url });
 
     await this.attachSectionsAndTags(userId, itemId, input.sectionIds, input.tagNames);
 
@@ -276,15 +284,25 @@ class ItemService {
     }
 
     // Later duplicates within one file lose to the first; unique(user_id, url)
-    // would reject them anyway.
+    // would reject them anyway. Normalizing first means two spellings of one
+    // address collapse here rather than becoming two rows — and that an entry
+    // matches an item that was saved with the other spelling.
     const byUrl = new Map<string, ImportEntry>();
     for (const entry of entries) {
-      if (!byUrl.has(entry.url)) {
-        byUrl.set(entry.url, entry);
+      const url = normalizeUrl(entry.url);
+
+      if (url && !byUrl.has(url)) {
+        byUrl.set(url, { ...entry, url });
       }
     }
     const unique = [...byUrl.values()];
     const urls = [...byUrl.keys()];
+
+    // Every entry was junk — a javascript: bookmarklet, a place: smart folder.
+    // Stop before creating sections for an import that files nothing.
+    if (unique.length === 0) {
+      return { imported: 0, reused: 0, sectionsCreated: 0, batchId };
+    }
 
     const sectionIdByName = await this.resolveSectionsByName(
       userId,
