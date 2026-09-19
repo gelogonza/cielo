@@ -37,6 +37,43 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — The extension's Cielo address is configurable
+
+**What:** An Options page where you set which Cielo the extension talks to.
+Saved to `chrome.storage.local`, read fresh on every save, import and login
+check. The popup footer shows the host and links to the page. Default is still
+`http://localhost:3000`.
+
+**Why:** `config.js` hardcoded localhost, so a deployed build meant editing
+source and reloading — and it is the last thing blocking the extension from
+being usable against a real deployment. Rejected a build-time env var: the same
+unpacked build has to work against dev and production without a rebuild.
+
+**Decisions worth not relitigating:**
+
+- **`getApiBaseUrl()`, not an exported constant.** The stored value can change
+  while the service worker is alive, so nothing may capture it at import time.
+- **Input is normalized to an origin.** A bare host gets https (a deployment),
+  a loopback host gets http (a dev server, which is not on https). Path, query
+  and hash are dropped, because every caller appends its own path. Anything not
+  http(s) is refused and nothing is written.
+- **No new permissions.** `storage` was already there and `options_ui` is not a
+  permission, so the locked list is unchanged.
+
+**Touched:** `extension/src/lib/config.js` (rewritten),
+`extension/src/options.{html,js}` (new), `extension/src/{background,popup}.js`,
+`extension/src/popup.html`, `extension/manifest.json`, `extension/README.md`,
+`tests/unit/extension/{config,manifest}.test.ts`.
+
+**Verified:** 16 new tests — normalization rules, storage fallbacks, and that an
+invalid address writes nothing. Type-check, lint and 341 tests pass.
+
+**Follow-ups:** No connection check in the Options page — a typo'd host is only
+discovered on the next save. Chrome keeps `storage.local` per profile, so the
+address does not sync across machines.
+
+---
+
 ## 2026-09-12 — Import your saves from Instagram, TikTok and X
 
 **What:** On your own saves page — `instagram.com/<you>/saved/`, a TikTok

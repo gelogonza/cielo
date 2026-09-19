@@ -39,10 +39,20 @@ describe("extension/manifest.json", () => {
     expect(existsSync(path.join(extensionDir, manifest.action.default_icon["16"]))).toBe(true);
   });
 
+  it("ships an options page so the Cielo address is not baked in at build time", () => {
+    expect(manifest.options_ui.page).toBe("src/options.html");
+    expect(existsSync(path.join(extensionDir, manifest.options_ui.page))).toBe(true);
+  });
+
   it("references files that actually exist", () => {
     // The content script is a build artifact (npm run build:extension); if it
     // is missing the extension loads but silently never scrapes.
-    for (const file of [manifest.background.service_worker, ...manifest.content_scripts[0].js]) {
+    for (const file of [
+      manifest.background.service_worker,
+      manifest.action.default_popup,
+      manifest.options_ui.page,
+      ...manifest.content_scripts[0].js,
+    ]) {
       expect(existsSync(path.join(extensionDir, file)), `missing ${file}`).toBe(true);
     }
   });

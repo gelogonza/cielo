@@ -21,8 +21,16 @@ loaded as ES modules directly and need no build.
 4. **Load unpacked** → select the `extension/` directory
 5. Run the web app (`npm run dev`) and log in at http://localhost:3000/login
 
-The extension talks to whatever `src/lib/config.js` points at — `http://localhost:3000`
-for now. Change that constant before shipping.
+## Pointing it at your Cielo
+
+The extension defaults to `http://localhost:3000`. To use a deployed app, open
+the extension's **Options** (the "Change server" link in the popup, or the
+puzzle-piece menu → Cielo → Options) and enter the address — `cielo.app` and
+`https://cielo.app/library` both resolve to the same origin.
+
+The value lives in `chrome.storage.local`, not in the build, so one build works
+against both a dev server and production, and switching between them needs no
+reload. `src/lib/config.js` holds the default and the parsing rules.
 
 ## What it does
 

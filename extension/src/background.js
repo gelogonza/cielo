@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "./lib/config.js";
+import { getApiBaseUrl } from "./lib/config.js";
 import { SAVE_CONTEXTS, buildSavePayload } from "./lib/save-payload.js";
 
 const MENU_PREFIX = "save-to-cielo";
@@ -43,7 +43,10 @@ async function handleSave(context, info, tab) {
     // resolved server-side, so don't pay for a scrape that would be discarded.
     const metadata = context === "link" ? null : ((await requestScrape(tab?.id))?.metadata ?? null);
 
-    const { defaultSectionId } = await chrome.storage.local.get("defaultSectionId");
+    const [apiBaseUrl, { defaultSectionId }] = await Promise.all([
+      getApiBaseUrl(),
+      chrome.storage.local.get("defaultSectionId"),
+    ]);
 
     const payload = buildSavePayload({
       context,
@@ -57,7 +60,7 @@ async function handleSave(context, info, tab) {
       return;
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/save`, {
+    const response = await fetch(`${apiBaseUrl}/api/save`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -165,6 +168,8 @@ async function importSaves(tabId) {
     return;
   }
 
+  const apiBaseUrl = await getApiBaseUrl();
+
   await setState({ state: "collecting", found: 0 });
 
   const collected = await new Promise((resolve) => {
@@ -200,7 +205,7 @@ async function importSaves(tabId) {
     let response;
 
     try {
-      response = await fetch(`${API_BASE_URL}/api/import`, {
+      response = await fetch(`${apiBaseUrl}/api/import`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

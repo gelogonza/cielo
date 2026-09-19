@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "./lib/config.js";
+import { getApiBaseUrl } from "./lib/config.js";
 import { GENERAL, resolveDefaultSection } from "./lib/default-section.js";
 import { hasSessionCookie } from "./lib/has-session-cookie.js";
 import { resolvePopupState } from "./lib/popup-state.js";
@@ -6,13 +6,18 @@ import { detectSavesPage } from "./lib/saves-page.js";
 
 const root = document.getElementById("root");
 
+// Resolved once per popup open, then read synchronously by the painters below.
+let apiBaseUrl = "";
+
 async function render() {
   // Opening the popup acknowledges whatever the badge was reporting.
   chrome.runtime.sendMessage({ type: "POPUP_OPENED" });
 
+  apiBaseUrl = await getApiBaseUrl();
+
   const [stored, cookies] = await Promise.all([
     chrome.storage.local.get(["lastSaveOutcome", "defaultSectionId"]),
-    chrome.cookies.getAll({ url: API_BASE_URL }),
+    chrome.cookies.getAll({ url: apiBaseUrl }),
   ]);
 
   const state = resolvePopupState({
@@ -86,7 +91,7 @@ async function paintSavesImport(initial) {
 
           let removed = 0;
           for (const batchId of state.batchIds) {
-            const response = await fetch(`${API_BASE_URL}/api/import/${batchId}`, {
+            const response = await fetch(`${apiBaseUrl}/api/import/${batchId}`, {
               method: "DELETE",
               credentials: "include",
             });
@@ -128,7 +133,11 @@ function paint(state, defaultSectionId) {
   root.replaceChildren(header());
 
   if (state.kind === "signed-out") {
-    root.append(text("Log in to start saving."), linkButton("Log in", `${API_BASE_URL}/login`));
+    root.append(
+      text("Log in to start saving."),
+      linkButton("Log in", `${apiBaseUrl}/login`),
+      settingsRow(),
+    );
     return;
   }
 
@@ -141,15 +150,30 @@ function paint(state, defaultSectionId) {
   }
 
   if (state.kind === "error") {
-    root.append(footnote(state.message, true), linkButton("Open Cielo", `${API_BASE_URL}/library`));
+    root.append(footnote(state.message, true), linkButton("Open Cielo", `${apiBaseUrl}/library`));
     return;
   }
 
   root.append(text("Right-click any page and choose Save to Cielo."), divider());
 
   const row = sectionRow(defaultSectionId);
-  root.append(row.element);
+  root.append(row.element, settingsRow());
   void loadSections(row, defaultSectionId);
+}
+
+/** Footer showing which Cielo this extension talks to, and a way to change it. */
+function settingsRow() {
+  const element = document.createElement("p");
+  element.className = "footnote";
+  element.append(`${new URL(apiBaseUrl).host} · `);
+
+  const link = document.createElement("button");
+  link.className = "link-button inline";
+  link.textContent = "Change server";
+  link.addEventListener("click", () => chrome.runtime.openOptionsPage());
+
+  element.append(link);
+  return element;
 }
 
 function header() {
@@ -252,7 +276,7 @@ function sectionRow(defaultSectionId) {
 
 async function loadSections(row) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/sections`, { credentials: "include" });
+    const response = await fetch(`${apiBaseUrl}/api/sections`, { credentials: "include" });
 
     if (!response.ok) {
       return;
