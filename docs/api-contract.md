@@ -293,6 +293,21 @@ page ends the offer, which is visible — the undo disappears with it.
 
 ---
 
+## DELETE /api/items/:id
+
+Deletes one item. Runs through the same path as the bulk delete, so it answers
+the same way — one delete mechanism, one undo.
+
+```json
+// Response 200
+{ "deleted": 1, "restorable": ["…one item, in the shape POST /api/items/restore takes"] }
+```
+
+`404` if the id is not this user's. (This replaced an earlier `204` with no
+body, which left the single delete with no way to offer undo.)
+
+---
+
 ## POST /api/items/restore
 
 Undo of a bulk delete. The body is the `restorable` snapshot the delete handed

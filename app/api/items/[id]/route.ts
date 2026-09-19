@@ -43,13 +43,18 @@ export const PATCH = withAuth<RouteContext>(async (request, context, user) => {
   return NextResponse.json(serializeItem(item));
 });
 
+/**
+ * Deleting one item runs through the same path as a bulk delete, so it comes
+ * back with the same `restorable` snapshot and the same undo. One delete
+ * mechanism, one undo — see DELETE /api/items.
+ */
 export const DELETE = withAuth<RouteContext>(async (_request, context, user) => {
   const { id } = await context.params;
-  const deleted = await itemService.remove(user.id, id);
+  const { deleted, restorable } = await itemService.removeMany(user.id, [id]);
 
-  if (!deleted) {
+  if (deleted === 0) {
     return NextResponse.json({ error: "Item not found" }, { status: 404 });
   }
 
-  return new NextResponse(null, { status: 204 });
+  return NextResponse.json({ deleted, restorable });
 });

@@ -148,18 +148,8 @@ describe("ItemService.get / remove", () => {
     );
   });
 
-  it("deletes only within the owner's scope", async () => {
-    item.deleteMany.mockResolvedValue({ count: 1 });
-
-    await expect(itemService.remove("user-1", "item-1")).resolves.toBe(true);
-    expect(item.deleteMany).toHaveBeenCalledWith({ where: { id: "item-1", userId: "user-1" } });
-  });
-
-  it("reports false when another user's item did not match", async () => {
-    item.deleteMany.mockResolvedValue({ count: 0 });
-
-    await expect(itemService.remove("user-1", "item-1")).resolves.toBe(false);
-  });
+  // Deleting one item now runs through removeMany, so that it comes back with
+  // the same undo snapshot — see tests/unit/items/remove-restore.test.ts.
 });
 
 describe("ItemService.setSectionsAndTags", () => {

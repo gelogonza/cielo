@@ -4,12 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const user = { id: "user-1", email: "person@example.com" };
 const getSessionUser = vi.fn(async () => user as typeof user | null);
 const get = vi.fn();
-const remove = vi.fn();
+const removeMany = vi.fn();
 const setSectionsAndTags = vi.fn();
 
 vi.mock("@/lib/auth/session", () => ({ getSessionUser }));
 vi.mock("@/lib/items/item-service", () => ({
-  itemService: { get, remove, setSectionsAndTags },
+  itemService: { get, removeMany, setSectionsAndTags },
 }));
 
 const { GET, PATCH, DELETE } = await import("@/app/api/items/[id]/route");
@@ -38,7 +38,7 @@ function patchRequest(body: unknown) {
 beforeEach(() => {
   getSessionUser.mockResolvedValue(user);
   get.mockReset();
-  remove.mockReset();
+  removeMany.mockReset();
   setSectionsAndTags.mockReset();
 });
 
@@ -110,17 +110,19 @@ describe("PATCH /api/items/:id", () => {
 });
 
 describe("DELETE /api/items/:id", () => {
-  it("returns 204 with no body once deleted", async () => {
-    remove.mockResolvedValue(true);
+  it("deletes the item and hands back the snapshot an undo needs", async () => {
+    // Same shape as the bulk delete, so one item and twenty undo the same way.
+    removeMany.mockResolvedValue({ deleted: 1, restorable: [{ id: "item-1" }] });
 
     const response = await DELETE(new NextRequest("http://localhost/api/items/item-1"), context);
 
-    expect(response.status).toBe(204);
-    expect(await response.text()).toBe("");
+    expect(removeMany).toHaveBeenCalledWith("user-1", ["item-1"]);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ deleted: 1, restorable: [{ id: "item-1" }] });
   });
 
   it("returns 404 when nothing matched the owner scope", async () => {
-    remove.mockResolvedValue(false);
+    removeMany.mockResolvedValue({ deleted: 0, restorable: [] });
 
     const response = await DELETE(new NextRequest("http://localhost/api/items/item-1"), context);
 

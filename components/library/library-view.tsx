@@ -234,8 +234,13 @@ export function LibraryView({
     const response = await fetch(`/api/items/${id}`, { method: "DELETE" });
     if (!response.ok) return;
 
+    const { restorable } = await response.json();
+
     setItems((current) => current.filter((item) => item.id !== id));
     setOpenItemId(null);
+    // One item and twenty undo the same way — the single delete goes through
+    // the same path and comes back with the same snapshot.
+    setUndoable({ items: restorable });
     router.refresh();
   }
 
@@ -327,6 +332,20 @@ export function LibraryView({
           <span className="text-sm">
             {selectedIds.length === 0 ? "Pick items to delete" : `${selectedIds.length} selected`}
           </span>
+          {/* "All" means what is loaded, not the whole library — the feed is
+              paginated, so anything below the last infinite-scroll page has
+              never been fetched and cannot honestly be included. */}
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedIds((current) =>
+                current.length === items.length ? [] : items.map((item) => item.id),
+              )
+            }
+            className="text-muted hover:text-primary-text h-9 rounded-full px-3 text-sm transition"
+          >
+            {selectedIds.length === items.length && items.length > 0 ? "Clear" : "Select all"}
+          </button>
           <button
             type="button"
             onClick={leaveSelection}

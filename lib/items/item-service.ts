@@ -693,11 +693,6 @@ class ItemService {
     });
   }
 
-  async remove(userId: string, itemId: string): Promise<boolean> {
-    const { count } = await prisma.item.deleteMany({ where: { id: itemId, userId } });
-    return count > 0;
-  }
-
   // Replace semantics: the supplied lists become the item's sections/tags, so
   // the detail panel can both attach and detach with one call. Omitting a list
   // leaves that dimension untouched.

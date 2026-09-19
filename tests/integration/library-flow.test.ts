@@ -23,6 +23,8 @@ const {
   DELETE: deleteItem,
 } = await import("@/app/api/items/[id]/route");
 const { PUT: putNote } = await import("@/app/api/items/[id]/note/route");
+const { DELETE: bulkDelete } = await import("@/app/api/items/route");
+const { POST: restore } = await import("@/app/api/items/restore/route");
 const { GET: listSections, POST: createSection } = await import("@/app/api/sections/route");
 const { GET: listTags } = await import("@/app/api/tags/route");
 
@@ -47,6 +49,16 @@ async function saveLink(url: string, overrides: Record<string, unknown> = {}) {
     }),
     {},
   );
+  return { status: response.status, body: await response.json() };
+}
+
+async function restoreItems(items: unknown[]) {
+  const response = await restore(json("/api/items/restore", "POST", { items }), {});
+  return { status: response.status, body: await response.json() };
+}
+
+async function bulkDeleteItems(ids: string[]) {
+  const response = await bulkDelete(json("/api/items", "DELETE", { ids }), {});
   return { status: response.status, body: await response.json() };
 }
 
@@ -259,10 +271,84 @@ describe("item detail editing", () => {
       json(`/api/items/${saved.body.id}`, "DELETE"),
       ctx(saved.body.id),
     );
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(200);
 
     const { body } = await feed();
     expect(body.items).toHaveLength(0);
+  });
+
+  it("hands back a snapshot that restores the item exactly", async () => {
+    const saved = await saveLink("https://are.na/block/1");
+
+    const deleted = await (
+      await deleteItem(json(`/api/items/${saved.body.id}`, "DELETE"), ctx(saved.body.id))
+    ).json();
+
+    expect((await feed()).body.items).toHaveLength(0);
+
+    const restored = await restoreItems(deleted.restorable);
+    expect(restored.body).toEqual({ restored: 1 });
+
+    const { body } = await feed();
+    expect(body.items).toHaveLength(1);
+    // Same row, not a re-save: the id and the original save time survive.
+    expect(body.items[0].id).toBe(saved.body.id);
+    expect(body.items[0].savedAt).toBe(saved.body.savedAt);
+  });
+});
+
+describe("bulk delete and undo", () => {
+  it("restores items with their sections, tags and notes intact", async () => {
+    const section = await (
+      await createSection(json("/api/sections", "POST", { name: "Inspo" }), {})
+    ).json();
+
+    const saved = await saveLink("https://are.na/block/1", {
+      sectionIds: [section.id],
+      tagNames: ["design"],
+    });
+    await putNote(
+      json(`/api/items/${saved.body.id}/note`, "PUT", { body: "worth keeping" }),
+      ctx(saved.body.id),
+    );
+
+    const deleted = await bulkDeleteItems([saved.body.id]);
+    expect(deleted.body.deleted).toBe(1);
+    expect((await feed()).body.items).toHaveLength(0);
+
+    expect((await restoreItems(deleted.body.restorable)).body).toEqual({ restored: 1 });
+
+    const item = await (
+      await getItem(json(`/api/items/${saved.body.id}`, "GET"), ctx(saved.body.id))
+    ).json();
+
+    expect(item.id).toBe(saved.body.id);
+    expect(item.sections).toEqual([{ id: section.id, name: "Inspo" }]);
+    expect(item.tags.map((tag: { name: string }) => tag.name)).toEqual(["design"]);
+    expect(item.note).toBe("worth keeping");
+  });
+
+  it("deletes only the ids it was given", async () => {
+    const keep = await saveLink("https://are.na/keep");
+    const go = await saveLink("https://are.na/go");
+
+    const deleted = await bulkDeleteItems([go.body.id]);
+
+    expect(deleted.body.deleted).toBe(1);
+    const { body } = await feed();
+    expect(body.items.map((entry: { id: string }) => entry.id)).toEqual([keep.body.id]);
+  });
+
+  it("skips an item whose url was saved again before the undo", async () => {
+    const saved = await saveLink("https://are.na/block/1");
+    const deleted = await bulkDeleteItems([saved.body.id]);
+
+    await saveLink("https://are.na/block/1");
+
+    // The url is taken, so the old row cannot come back — and the restore
+    // says so rather than failing.
+    expect((await restoreItems(deleted.body.restorable)).body).toEqual({ restored: 0 });
+    expect((await feed()).body.items).toHaveLength(1);
   });
 });
 

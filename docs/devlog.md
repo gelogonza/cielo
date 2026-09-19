@@ -37,6 +37,51 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — Select all, and undo a single delete too
+
+**What:** The selection bar gets "Select all" (which becomes "Clear" once
+everything is picked), and deleting one item from the detail overlay now offers
+the same undo a bulk delete does.
+
+**Why:** two follow-ups from the undo entry. The asymmetry had flipped —
+deleting twenty items was recoverable and deleting one was not.
+
+**Decisions worth not relitigating:**
+
+- **`DELETE /api/items/:id` now answers `200` with `{deleted, restorable}`
+  instead of `204`.** It delegates to `removeMany`, so there is one delete
+  mechanism and one undo rather than two that drift. `itemService.remove` is
+  gone — it was the same query with a worse return type. The route was never
+  in `api-contract.md`; it is now.
+- **"Select all" means what is loaded, not the whole library.** The feed is
+  paginated, so anything below the last infinite-scroll page has never been
+  fetched. Claiming to select it would be a lie, and deleting on that claim
+  would be a bad one.
+
+**Also fixed, in the test harness:** `FakePrisma.matches` ignored
+`id: { in: [...] }` entirely, so every bulk query silently matched the user's
+whole library — a `removeMany` that deleted everything would have passed. It
+now filters, and the fake grew `$transaction`, `item.createMany`,
+`note.createMany` and the `select` form of a relation include, which is what
+the restore path actually asks for.
+
+**Touched:** `components/library/library-view.tsx`,
+`app/api/items/[id]/route.ts`, `lib/items/item-service.ts`,
+`tests/integration/fake-prisma.ts`, `tests/integration/library-flow.test.ts`,
+`docs/api-contract.md`, unit tests.
+
+**Verified:** 433 tests, including three new integration tests that run the
+real handlers end to end — a delete-and-restore round trip keeping sections,
+tags and note; a bulk delete touching only the ids it was given; and a restore
+correctly skipping an item whose url was saved again in between. Live: select
+all picks 14 and flips to Clear, and an overlay delete went 14 → 13 → 14 with
+the note and section intact.
+
+**Follow-ups:** "Select all" cannot reach unloaded pages, and there is no
+"select everything in this section" that would.
+
+---
+
 ## 2026-09-19 — Rename and delete a tag
 
 **What:** An "Edit" toggle next to the TAGS heading turns the chips into rows
