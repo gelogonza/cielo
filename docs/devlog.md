@@ -37,6 +37,54 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — Export your whole library, in two formats
+
+**What:** `GET /api/export?format=json|html` returns the entire library as a
+download, and the import page now offers both. JSON is the lossless archive —
+every item, note, highlight, section and tag. HTML is Netscape bookmark format,
+which every browser and bookmarking tool reads.
+
+**Why:** a private library you cannot get out of is not private, it is captive.
+Import without export is a one-way door, and this is a principles feature: it
+has to exist before anyone is ever asked to pay. It also makes the import path
+testable against a file we control.
+
+**Decisions worth not relitigating:**
+
+- **Two formats, not one.** No bookmark format can hold a note or a highlight
+  with no source, and no JSON format is importable anywhere else. Either alone
+  is a worse promise than both.
+- **Unpaginated.** A cursor-based export that stops at a page boundary is not
+  an export. `exportAll` is the only list query with no limit, on purpose.
+- **An item in two sections is written under both folders.** Re-importing
+  reunites the copies, because `importMany` dedupes on URL and adds the section.
+- **Plain `<a download>`, not fetch-and-blob.** The route sets
+  `Content-Disposition`, so the browser does the work and it survives JS being
+  off.
+- Items with no URL cannot be an `<A HREF>`, so the HTML file leaves them out.
+  The UI says so rather than quietly losing them.
+
+**Touched:** `lib/export/build-export.ts` and `app/api/export/route.ts` (new),
+`lib/items/item-service.ts` (`exportAll`), `components/import/export-panel.tsx`
+(new), `components/import/import-view.tsx`, `components/library/sidebar.tsx`
+("Import and export"), `docs/api-contract.md`, tests.
+
+**Verified:** 26 new tests, including a round trip through Cielo's own importer.
+Live against the real library: 14 items → JSON with all 14; HTML with 13
+anchors, 3 folders, tags and the 2020 `ADD_DATE`s from the old bulk import
+intact, and the one sourceless highlight correctly omitted. Re-feeding that file
+to the import page previews "13 bookmarks found · 3 folders", 0 skipped. Type-check,
+lint and 376 tests pass.
+
+**Follow-ups:** The whole file is built in memory before the response starts —
+fine at this size, needs streaming at tens of thousands of items. Re-importing
+a Cielo export can duplicate an item whose URL was stored without a trailing
+slash: the importer normalizes through `new URL().href` and saves do not, so
+`https://x.com` and `https://x.com/` are two rows. Worth settling on one
+normalization for both paths.
+
+---
+
 ## 2026-09-19 — Fix a loose bookmark borrowing the wrong folder on import
 
 **What:** A bookmark sitting outside every folder in an export now imports

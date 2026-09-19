@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Logo } from "@/components/brand/logo";
+import { ExportPanel } from "@/components/import/export-panel";
 import { Button } from "@/components/ui/button";
 import { parseBookmarkFile, type ParseResult } from "@/lib/import/parse-bookmarks";
 
@@ -269,6 +270,10 @@ export function ImportView() {
           {error}
         </p>
       )}
+
+      <div className="bg-line mt-4 h-px w-full" />
+
+      <ExportPanel />
     </main>
   );
 }

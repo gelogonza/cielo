@@ -208,6 +208,44 @@ something into it by hand, it stays.
 
 ---
 
+## GET /api/export
+
+**Implemented.** The whole library in one file, as an attachment. Deliberately
+unpaginated and uncached — a partial export is not an export, and the body is
+the user's entire library.
+
+| Query    | Values           | Default |
+| -------- | ---------------- | ------- |
+| `format` | `json` \| `html` | `json`  |
+
+Any other `format` is a `400`.
+
+**`format=json`** — `application/json`, filename `cielo-YYYY-MM-DD.json`. The
+lossless copy: items in the same shape as `GET /api/items`, each with its
+`note`, so highlights saved without a URL survive.
+
+```json
+{
+  "format": "cielo-export",
+  "version": 1,
+  "exportedAt": "ISO-8601",
+  "itemCount": "number",
+  "items": ["…same shape as GET /api/items, plus note"]
+}
+```
+
+**`format=html`** — `text/html`, filename `cielo-bookmarks-YYYY-MM-DD.html`.
+Netscape bookmark HTML, the format browsers and other bookmarking tools import.
+Sections become folders, tags go in `TAGS`, the original `savedAt` goes in
+`ADD_DATE`, and a note becomes `<DD>`. Lossy by construction: an item with no
+URL cannot be an `<A HREF>` and is left out. An item in two sections is written
+under both — re-importing reunites the copies rather than duplicating the item.
+
+Both responses carry `Content-Disposition: attachment` and
+`Cache-Control: no-store, private`.
+
+---
+
 ## DELETE /api/items
 
 Bulk delete, for the library's selection mode.

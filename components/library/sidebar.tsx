@@ -127,7 +127,7 @@ export function Sidebar({
         href="/import"
         className="text-muted hover:text-primary-text rounded-row mt-2 hidden h-[38px] shrink-0 items-center px-[18px] text-sm transition lg:flex"
       >
-        Import bookmarks
+        Import and export
       </a>
 
       <p className="text-muted mt-4 text-xs font-medium tracking-[1px] lg:mt-6 lg:pt-1">TAGS</p>

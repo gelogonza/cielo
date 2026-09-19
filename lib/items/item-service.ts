@@ -469,6 +469,25 @@ class ItemService {
     return prisma.item.count({ where: { userId } });
   }
 
+  /**
+   * Every item the user has, with everything attached to it, oldest last.
+   *
+   * Deliberately unpaginated: this backs the export, and an export that stops
+   * at a page boundary is not an export. Notes are included here and nowhere
+   * else in a list query, because the JSON export is meant to be lossless.
+   */
+  async exportAll(userId: string) {
+    return prisma.item.findMany({
+      where: { userId },
+      orderBy: { savedAt: "desc" },
+      include: {
+        sections: { include: { section: { select: { id: true, name: true } } } },
+        tags: { include: { tag: { select: { id: true, name: true } } } },
+        note: { select: { body: true } },
+      },
+    });
+  }
+
   async get(userId: string, itemId: string) {
     return prisma.item.findFirst({
       where: { id: itemId, userId },
