@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const tag = {
   create: vi.fn(),
   findMany: vi.fn(),
+  findFirst: vi.fn(),
   findUniqueOrThrow: vi.fn(),
+  updateMany: vi.fn(),
   deleteMany: vi.fn(),
 };
 
@@ -82,5 +84,57 @@ describe("TagService", () => {
     const result = await tagService.remove("user-1", "someone-elses-tag");
 
     expect(result).toBe(false);
+  });
+});
+
+describe("TagService.rename", () => {
+  beforeEach(() => {
+    tag.findFirst.mockReset();
+    tag.updateMany.mockReset();
+  });
+
+  it("renames a tag the user owns", async () => {
+    tag.findFirst.mockResolvedValue(null);
+    tag.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await tagService.rename("user-1", "tag-1", "typography");
+
+    expect(tag.updateMany).toHaveBeenCalledWith({
+      where: { id: "tag-1", userId: "user-1" },
+      data: { name: "typography" },
+    });
+    expect(result).toEqual({ status: "renamed", tag: { id: "tag-1", name: "typography" } });
+  });
+
+  it("reports a conflict instead of silently merging two tags", async () => {
+    // Tag is unique on (userId, name). Folding them together is destructive
+    // and is not what "rename" should do without saying so.
+    tag.findFirst.mockResolvedValue({ id: "tag-2" });
+
+    const result = await tagService.rename("user-1", "tag-1", "type");
+
+    expect(result).toEqual({ status: "conflict" });
+    expect(tag.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("ignores the tag itself when checking for a conflict", async () => {
+    tag.findFirst.mockResolvedValue(null);
+    tag.updateMany.mockResolvedValue({ count: 1 });
+
+    await tagService.rename("user-1", "tag-1", "type");
+
+    expect(tag.findFirst).toHaveBeenCalledWith({
+      where: { userId: "user-1", name: "type", NOT: { id: "tag-1" } },
+      select: { id: true },
+    });
+  });
+
+  it("reports not-found for a tag belonging to someone else", async () => {
+    tag.findFirst.mockResolvedValue(null);
+    tag.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(tagService.rename("user-1", "someone-elses", "type")).resolves.toEqual({
+      status: "not-found",
+    });
   });
 });

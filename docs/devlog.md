@@ -37,6 +37,47 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — Rename and delete a tag
+
+**What:** An "Edit" toggle next to the TAGS heading turns the chips into rows
+with rename and delete. Rename is new all the way down: `TagService.rename` and
+`PATCH /api/tags/:id` did not exist — only DELETE did.
+
+**Why:** the same hole sections had, and tags are even more likely to need it,
+since an import creates them from whatever the export file happened to say.
+
+**Decisions worth not relitigating:**
+
+- **Renaming onto an existing tag is a `409`, not a merge.** `Tag` is unique on
+  `(userId, name)`. Folding two tags together is a reasonable thing to want,
+  but it is a different, destructive operation, and doing it silently under
+  "rename" would lose a distinction the user made without telling them.
+- **Editing is a mode, not a hover affordance.** A chip is too small to carry a
+  menu without cramping it or shifting the layout on hover, and the sidebar is
+  an `overflow-auto` column so a popover anchored to a 60px chip has nowhere to
+  go. In edit mode the chips become full-width rows, the way sections already
+  look. An explicit mode also means a tag cannot be deleted by a mis-tap on a
+  filter.
+- The sidebar's one error line now distinguishes a 409 from a failure, so
+  "already have a tag called type" reads as an answer rather than a bug. It is
+  no longer desktop-only, because tag editing works at every width.
+
+**Touched:** `components/library/tag-editor.tsx` (new),
+`components/library/sidebar.tsx`, `lib/tags/tag-service.ts`,
+`app/api/tags/[id]/route.ts`, `docs/api-contract.md`, tests.
+
+**Verified:** 8 new tests. Live: renamed a tag, watched a rename onto an
+existing name refuse with "You already have a tag called \"type\"." and leave
+both tags untouched, and deleted a throwaway tag — the other four tags and all
+14 items were unaffected. Confirm copy checked at 0 and 2 items.
+
+**Follow-ups:** No merge-on-rename, which is the natural next thing to want and
+should be its own explicit action ("merge into…"), not a silent side effect of
+renaming. Tags still cannot be created from the sidebar — they only arrive with
+an item or an import.
+
+---
+
 ## 2026-09-19 — Undo a bulk delete
 
 **What:** After a bulk delete the selection bar is replaced by "N deleted —

@@ -416,6 +416,22 @@ parameter here, and issuing a query clears whatever filter was active.
 { "tags": [{ "id": "uuid", "name": "string", "itemCount": "number" }] }
 ```
 
+**PATCH /api/tags/:id** — rename
+
+```json
+// Request
+{ "name": "string" }
+
+// Response 200
+{ "id": "uuid", "name": "string" }
+```
+
+`Tag` is unique on `(userId, name)`, so renaming onto a name the user already
+has answers **`409`** rather than merging the two. Folding tags together is a
+reasonable thing to want, but it is a different, destructive operation and
+should not happen silently under "rename". `404` if the tag is not this user's,
+`400` for a blank name.
+
 **DELETE /api/tags/:id** — deletes only `ItemTag` join rows (`onDelete: Cascade`), items untouched.
 
 ---

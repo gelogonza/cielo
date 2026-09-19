@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SectionRow } from "./section-row";
+import { TagEditor } from "./tag-editor";
 
 export interface SidebarSection {
   id: string;
@@ -44,6 +45,7 @@ export function Sidebar({
   const [isCreating, setIsCreating] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isEditingTags, setIsEditingTags] = useState(false);
 
   async function createSection() {
     const name = draftName.trim();
@@ -54,15 +56,36 @@ export function Sidebar({
       return;
     }
 
-    await send("/api/sections", { method: "POST", body: { name } }, "Could not add that section.");
+    await send(
+      "/api/sections",
+      { method: "POST", body: { name } },
+      null,
+      "Could not add that section.",
+    );
   }
 
   async function renameSection(id: string, name: string) {
     await send(
       `/api/sections/${id}`,
       { method: "PATCH", body: { name } },
+      null,
       "Could not rename that section.",
     );
+  }
+
+  async function renameTag(id: string, name: string) {
+    // Tags are unique per user, so the 409 here is a real answer, not a
+    // failure — say which one it is.
+    await send(
+      `/api/tags/${id}`,
+      { method: "PATCH", body: { name } },
+      `You already have a tag called "${name}".`,
+      "Could not rename that tag.",
+    );
+  }
+
+  async function deleteTag(id: string) {
+    await send(`/api/tags/${id}`, { method: "DELETE" }, null, "Could not delete that tag.");
   }
 
   async function deleteSection(id: string) {
@@ -72,7 +95,7 @@ export function Sidebar({
       onSelectSection(null);
     }
 
-    await send(`/api/sections/${id}`, { method: "DELETE" }, "Could not delete that section.");
+    await send(`/api/sections/${id}`, { method: "DELETE" }, null, "Could not delete that section.");
   }
 
   /**
@@ -83,6 +106,7 @@ export function Sidebar({
   async function send(
     url: string,
     init: { method: string; body?: unknown },
+    conflict: string | null,
     failure: string,
   ) {
     setError(null);
@@ -99,7 +123,7 @@ export function Sidebar({
       });
 
       if (!response.ok) {
-        setError(failure);
+        setError(response.status === 409 && conflict ? conflict : failure);
         return;
       }
 
@@ -172,7 +196,7 @@ export function Sidebar({
       </div>
 
       {error && (
-        <p role="alert" className="mt-2 hidden px-[18px] text-[13px] text-red-600 lg:block">
+        <p role="alert" className="mt-2 px-[18px] text-[13px] text-red-600">
           {error}
         </p>
       )}
@@ -184,25 +208,40 @@ export function Sidebar({
         Import and export
       </a>
 
-      <p className="text-muted mt-4 text-xs font-medium tracking-[1px] lg:mt-6 lg:pt-1">TAGS</p>
-
-      <div className="-mx-1 mt-2.5 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:flex-wrap lg:overflow-x-visible lg:px-0 lg:pb-0">
-        {tags.map((tag) => (
+      <div className="mt-4 flex items-center justify-between lg:mt-6 lg:pt-1">
+        <p className="text-muted text-xs font-medium tracking-[1px]">TAGS</p>
+        {tags.length > 0 && (
           <button
-            key={tag.id}
             type="button"
-            onClick={() => onSelectTag(tag.id)}
-            aria-pressed={activeTagId === tag.id}
-            className={`shrink-0 rounded-full px-3.5 py-[7px] text-[13px] whitespace-nowrap transition ${
-              activeTagId === tag.id
-                ? "bg-accent text-accent-contrast"
-                : "bg-ink text-secondary-text hover:text-white"
-            }`}
+            onClick={() => setIsEditingTags((editing) => !editing)}
+            className="text-muted hover:text-primary-text text-xs transition"
           >
-            {tag.name}
+            {isEditingTags ? "Done" : "Edit"}
           </button>
-        ))}
+        )}
       </div>
+
+      {isEditingTags ? (
+        <TagEditor tags={tags} onRename={renameTag} onDelete={deleteTag} />
+      ) : (
+        <div className="-mx-1 mt-2.5 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:flex-wrap lg:overflow-x-visible lg:px-0 lg:pb-0">
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              type="button"
+              onClick={() => onSelectTag(tag.id)}
+              aria-pressed={activeTagId === tag.id}
+              className={`shrink-0 rounded-full px-3.5 py-[7px] text-[13px] whitespace-nowrap transition ${
+                activeTagId === tag.id
+                  ? "bg-accent text-accent-contrast"
+                  : "bg-ink text-secondary-text hover:text-white"
+              }`}
+            >
+              {tag.name}
+            </button>
+          ))}
+        </div>
+      )}
     </nav>
   );
 }

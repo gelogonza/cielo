@@ -7,6 +7,12 @@ export interface TagSummary {
   itemCount: number;
 }
 
+export type RenameTagResult =
+  | { status: "renamed"; tag: { id: string; name: string } }
+  | { status: "not-found" }
+  /** The user already has a tag with that name. */
+  | { status: "conflict" };
+
 export interface FindOrCreateTagResult {
   tag: { id: string; name: string };
   created: boolean;
@@ -49,6 +55,33 @@ class TagService {
     });
 
     return tags.map((tag) => ({ id: tag.id, name: tag.name, itemCount: tag._count.items }));
+  }
+
+  /**
+   * Renames a tag, or reports why it could not.
+   *
+   * `Tag` is unique on `(userId, name)`, so renaming onto a name the user
+   * already has is a conflict rather than a merge. Folding two tags together
+   * is a reasonable thing to want, but it is a different, destructive
+   * operation — doing it silently under "rename" would lose a distinction the
+   * user made without telling them.
+   */
+  async rename(userId: string, tagId: string, name: string): Promise<RenameTagResult> {
+    const existing = await prisma.tag.findFirst({
+      where: { userId, name, NOT: { id: tagId } },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return { status: "conflict" };
+    }
+
+    const { count } = await prisma.tag.updateMany({
+      where: { id: tagId, userId },
+      data: { name },
+    });
+
+    return count > 0 ? { status: "renamed", tag: { id: tagId, name } } : { status: "not-found" };
   }
 
   // Deletes only the Tag row — ItemTag join rows cascade, Item rows are
