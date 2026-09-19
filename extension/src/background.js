@@ -141,10 +141,18 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     });
   }
 
-  if (message?.type === "IMPORT_SAVES") {
-    // Runs here rather than in the popup so closing the popup mid-import does
+  if (message?.type === "COLLECT_SAVES_ONLY") {
+    // Runs here rather than in the popup so closing the popup mid-scroll does
     // not abandon it.
-    void importSaves(message.tabId ?? sender.tab?.id);
+    void collectSaves(message.tabId ?? sender.tab?.id);
+  }
+
+  if (message?.type === "CONFIRM_IMPORT") {
+    void importCollectedSaves();
+  }
+
+  if (message?.type === "DISCARD_COLLECTED") {
+    void chrome.storage.local.remove("savesImport");
   }
 
   return false;
@@ -160,15 +168,22 @@ const IMPORT_CHUNK = 200;
  * pages have no API, and their contents only exist inside the user's own
  * logged-in session.
  */
-async function importSaves(tabId) {
-  const setState = (savesImport) => chrome.storage.local.set({ savesImport });
+const setState = (savesImport) => chrome.storage.local.set({ savesImport });
 
+/**
+ * Reads the page and stops, showing what it found.
+ *
+ * Nothing is sent to Cielo until the user says so. Scraping a virtualised feed
+ * you cannot see the end of is exactly the operation you want to look at
+ * before it writes a few hundred rows into your library — and it is the only
+ * way to tell "this platform changed its markup" from "you have no saves"
+ * without having already imported the wrong thing.
+ */
+async function collectSaves(tabId) {
   if (!tabId) {
     await setState({ state: "error", message: "No page to read." });
     return;
   }
-
-  const apiBaseUrl = await getApiBaseUrl();
 
   await setState({ state: "collecting", found: 0 });
 
@@ -184,13 +199,33 @@ async function importSaves(tabId) {
   }
 
   if (collected.links.length === 0) {
-    await setState({ state: "error", message: "No saved posts found on that page." });
+    await setState({
+      state: "error",
+      message: "No saved posts found. Scroll the page yourself and try again.",
+    });
     return;
   }
 
-  const entries = collected.links.map((link) => ({
+  await setState({
+    state: "collected",
+    links: collected.links,
+    section: collected.section,
+    platform: collected.platform,
+  });
+}
+
+async function importCollectedSaves() {
+  const { savesImport } = await chrome.storage.local.get("savesImport");
+
+  if (savesImport?.state !== "collected") {
+    return;
+  }
+
+  const apiBaseUrl = await getApiBaseUrl();
+
+  const entries = savesImport.links.map((link) => ({
     ...link,
-    folder: collected.section,
+    folder: savesImport.section,
     tags: [],
     savedAt: null,
   }));
@@ -232,6 +267,6 @@ async function importSaves(tabId) {
     totals.batchIds.push(batch.batchId);
   }
 
-  await setState({ state: "done", ...totals, platform: collected.platform });
+  await setState({ state: "done", ...totals, platform: savesImport.platform });
   await setBadge("\u2713", "#95ff00");
 }

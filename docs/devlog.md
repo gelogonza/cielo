@@ -37,6 +37,50 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — Look before you import your saves
+
+**What:** Reading a platform's saves page and importing it are now two steps.
+"Read your saves" collects and stops, showing how many it found and which
+section they would go into; nothing reaches Cielo until you press Import, and
+"discard" throws a bad read away.
+
+**Why:** this is the one feature that has never run against a live session, and
+it scrapes a virtualised feed whose markup these platforms change constantly.
+One click that both read the page and wrote a few hundred rows gave the user no
+way to tell "the markup changed" from "you have no saves" until after the
+damage. It also answers the standing "no select-which-saves" follow-up halfway:
+you cannot pick individual posts yet, but you can refuse the whole read.
+
+**What it caught:** the popup read `savesImport` from a `storage.local.get`
+that never asked for that key, so the "show a finished or failed run even when
+the user has navigated away" behaviour never worked — the popup always showed
+the offer again. Found by the first render test, not by reading the code.
+
+**Decisions worth not relitigating:**
+
+- **The collected links live in `chrome.storage`, not the popup.** Same reason
+  the import already ran in the worker: closing the popup mid-scroll must not
+  throw the work away.
+- Three messages (`COLLECT_SAVES_ONLY`, `CONFIRM_IMPORT`, `DISCARD_COLLECTED`)
+  rather than one `IMPORT_SAVES`, so the worker cannot write anything it was
+  not explicitly told to.
+
+**Touched:** `extension/src/background.js`, `extension/src/popup.js`,
+`extension/README.md`, `tests/unit/extension/popup-saves.test.ts` (new).
+
+**Verified:** 8 new tests rendering the real popup against a stubbed `chrome`,
+including that the read click sends no import and that a collected run imports
+only on confirmation. 471 tests, type-check and lint pass. **Still not run
+against a live Instagram, TikTok or X session** — that needs a real logged-in
+account, and it is the whole point of this change that the first such run is
+now safe to abandon.
+
+**Follow-ups:** Still no per-post selection. The preview shows a count, not the
+links themselves, so a read that collected the wrong *kind* of link still looks
+plausible.
+
+---
+
 ## 2026-09-19 — Component tests, and a section row that reads properly
 
 **What:** React Testing Library is set up, and the two components with real

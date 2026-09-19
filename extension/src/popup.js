@@ -16,7 +16,9 @@ async function render() {
   apiBaseUrl = await getApiBaseUrl();
 
   const [stored, cookies] = await Promise.all([
-    chrome.storage.local.get(["lastSaveOutcome", "defaultSectionId"]),
+    // savesImport belongs here too: without it, reopening the popup after a
+    // run showed the offer again instead of what happened.
+    chrome.storage.local.get(["lastSaveOutcome", "defaultSectionId", "savesImport"]),
     chrome.cookies.getAll({ url: apiBaseUrl }),
   ]);
 
@@ -61,6 +63,38 @@ async function paintSavesImport(initial) {
 
     if (state?.state === "collecting") {
       panel.append(text(`Reading your saves… ${state.found ?? 0} found`));
+      return;
+    }
+
+    // Nothing has been sent to Cielo yet. This is the step where the user
+    // finds out whether the page was read correctly, before a few hundred
+    // rows land in their library.
+    if (state?.state === "collected") {
+      const count = state.links.length;
+
+      panel.append(
+        divider(),
+        text(`Found ${count} saved ${count === 1 ? "post" : "posts"}.`),
+        footnote(`They will go into a section called ${state.section}.`),
+      );
+
+      const confirm = document.createElement("button");
+      confirm.className = "button";
+      confirm.textContent = `Import ${count}`;
+      confirm.addEventListener("click", () => {
+        chrome.runtime.sendMessage({ type: "CONFIRM_IMPORT" });
+        render({ state: "saving", done: 0, total: count });
+      });
+
+      const discard = document.createElement("button");
+      discard.className = "link-button";
+      discard.textContent = "Not these — discard";
+      discard.addEventListener("click", () => {
+        chrome.runtime.sendMessage({ type: "DISCARD_COLLECTED" });
+        panel.replaceChildren();
+      });
+
+      panel.append(confirm, discard);
       return;
     }
 
@@ -109,13 +143,18 @@ async function paintSavesImport(initial) {
 
     const button = document.createElement("button");
     button.className = "button";
-    button.textContent = `Import your ${config.label}`;
+    button.textContent = `Read your ${config.label}`;
     button.addEventListener("click", () => {
-      chrome.runtime.sendMessage({ type: "IMPORT_SAVES", tabId: tab.id });
+      chrome.runtime.sendMessage({ type: "COLLECT_SAVES_ONLY", tabId: tab.id });
       render({ state: "collecting", found: 0 });
     });
 
-    panel.append(divider(), text(`You're on your ${config.label} page.`), button);
+    panel.append(
+      divider(),
+      text(`You're on your ${config.label} page.`),
+      button,
+      footnote("You will see what was found before anything is saved."),
+    );
   };
 
   render(progress);
