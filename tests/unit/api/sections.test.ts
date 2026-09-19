@@ -30,18 +30,36 @@ describe("POST /api/sections", () => {
     create.mockReset();
   });
 
+  function post(name: string) {
+    return POST(
+      new NextRequest("http://localhost/api/sections", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }),
+      {},
+    );
+  }
+
+  const section = { id: "section-1", name: "Design", createdAt: new Date() };
+
   it("creates a section and returns 201", async () => {
-    create.mockResolvedValue({ id: "section-1", name: "Design", createdAt: new Date() });
+    create.mockResolvedValue({ section, created: true });
 
-    const request = new NextRequest("http://localhost/api/sections", {
-      method: "POST",
-      body: JSON.stringify({ name: "Design" }),
-    });
-
-    const response = await POST(request, {});
+    const response = await post("Design");
 
     expect(create).toHaveBeenCalledWith("user-1", "Design");
     expect(response.status).toBe(201);
+  });
+
+  it("answers 200 with the existing section when that name is already taken", async () => {
+    // Find-or-create, like tags — typing a name you already have should not
+    // leave you with two sections that look identical.
+    create.mockResolvedValue({ section, created: false });
+
+    const response = await post("Design");
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ id: "section-1", name: "Design" });
   });
 
   it("returns 400 without calling the service when name is missing", async () => {

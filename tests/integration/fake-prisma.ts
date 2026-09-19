@@ -269,6 +269,15 @@ export class FakePrisma {
 
   section = {
     create: async ({ data }: { data: { userId: string; name: string } }) => {
+      if (this.sections.some((row) => row.userId === data.userId && row.name === data.name)) {
+        // Thrown as the real Prisma error so the service's instanceof guard —
+        // the thing under test — actually engages. Mirrors 008's unique index.
+        throw new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+        });
+      }
+
       const row: SectionRow = {
         id: this.id("section"),
         userId: data.userId,
@@ -277,6 +286,20 @@ export class FakePrisma {
       };
       this.sections.push(row);
       return row;
+    },
+    findFirst: async ({ where }: { where: Where & { name?: string; NOT?: { id: string } } }) =>
+      this.sections.find(
+        (row) =>
+          row.userId === where.userId &&
+          row.name === where.name &&
+          (!where.NOT || row.id !== where.NOT.id),
+      ) ?? null,
+    findFirstOrThrow: async ({ where }: { where: Where & { name?: string } }) => {
+      const found = this.sections.find(
+        (row) => row.userId === where.userId && row.name === where.name,
+      );
+      if (!found) throw new Error(`No section ${String(where.name)}`);
+      return found;
     },
     findMany: async ({ where, select }: QueryArgs) => {
       const ids = typeof where?.id === "object" ? where.id.in : undefined;

@@ -17,6 +17,9 @@ export const POST = withAuth(async (request, _context, user) => {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const section = await sectionService.create(user.id, body.data.name);
-  return NextResponse.json(section, { status: 201 });
+  // Find-or-create, like tags: typing a name you already have hands back that
+  // section instead of making a second one with the same name.
+  const { section, created } = await sectionService.create(user.id, body.data.name);
+
+  return NextResponse.json(section, { status: created ? 201 : 200 });
 });

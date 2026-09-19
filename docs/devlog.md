@@ -37,6 +37,52 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — One section per name, per user
+
+**What:** Creating a section with a name you already have hands back that
+section instead of making a second one, and renaming onto an existing name
+answers `409`. `prisma/manual-sql/008_section_name_unique.sql` adds the
+matching unique index.
+
+**Why:** an import already reuses a section by name, and rename had no check at
+all, so two sections called "Design" were reachable from two directions. Not
+broken, but they would each hold half the items the user thought were together.
+Tags have had this constraint since the start.
+
+**Decisions worth not relitigating:**
+
+- **The service does a lookup AND catches `P2002`.** The lookup is what makes
+  the normal case work, and it is the only thing that works until 008 is
+  applied. The catch closes the race a lookup cannot, once it is. Belt and
+  braces on purpose, not redundancy.
+- **Conflict, not merge** — same reasoning as tags. Folding two sections
+  together is a different, destructive operation.
+- `POST /api/sections` now answers `200` when it reused, `201` when it created,
+  matching `POST /api/tags`.
+
+**Not yet applied:** the app's `cielo_app` role deliberately has no DDL rights
+(migration 004), so `CREATE UNIQUE INDEX` fails with "must be owner of table
+sections". **008 has to be run in the Supabase SQL editor as the owner.** The
+code is correct either way, so nothing is broken in the meantime — only the
+concurrent-create race stays open. Checked first: the project has no duplicate
+section names today.
+
+**Touched:** `prisma/manual-sql/008_section_name_unique.sql` (new),
+`prisma/schema.prisma`, `lib/sections/section-service.ts`,
+`app/api/sections/route.ts`, `app/api/sections/[id]/route.ts`,
+`components/library/sidebar.tsx`, `tests/integration/fake-prisma.ts`,
+`docs/api-contract.md`, tests.
+
+**Verified:** 447 tests. Live, before the index exists: `POST` of an existing
+name answered 200 with the existing section and created nothing, and renaming
+"Film" to "Inspo" answered 409 and left both alone.
+
+**Follow-ups:** No merge-on-rename for sections either, same as tags. The
+unique index is case-sensitive, so "Design" and "design" are still two
+sections.
+
+---
+
 ## 2026-09-19 — The extension checks the address you give it
 
 **What:** Saving an address in the extension's Options now probes it and says

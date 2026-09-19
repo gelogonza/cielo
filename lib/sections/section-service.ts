@@ -1,4 +1,18 @@
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/lib/generated/prisma/client";
+
+const UNIQUE_CONSTRAINT_VIOLATION = "P2002";
+
+export interface FindOrCreateSectionResult {
+  section: { id: string; name: string; createdAt: Date };
+  created: boolean;
+}
+
+export type RenameSectionResult =
+  | { status: "renamed"; section: { id: string; name: string } }
+  | { status: "not-found" }
+  /** The user already has a section with that name. */
+  | { status: "conflict" };
 
 export interface SectionSummary {
   id: string;
@@ -7,11 +21,45 @@ export interface SectionSummary {
 }
 
 class SectionService {
-  async create(userId: string, name: string) {
-    return prisma.section.create({
-      data: { userId, name },
+  /**
+   * Find-or-create, the way tags have always worked.
+   *
+   * Two checks on purpose. The lookup is what makes typing an existing name
+   * reuse that section rather than making a second one — and it is the only
+   * thing that works until `prisma/manual-sql/008_section_name_unique.sql` has
+   * been applied. The P2002 catch is what closes the race the lookup cannot,
+   * once the constraint is there.
+   */
+  async create(userId: string, name: string): Promise<FindOrCreateSectionResult> {
+    const existing = await prisma.section.findFirst({
+      where: { userId, name },
       select: { id: true, name: true, createdAt: true },
     });
+
+    if (existing) {
+      return { section: existing, created: false };
+    }
+
+    try {
+      const section = await prisma.section.create({
+        data: { userId, name },
+        select: { id: true, name: true, createdAt: true },
+      });
+      return { section, created: true };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === UNIQUE_CONSTRAINT_VIOLATION
+      ) {
+        const section = await prisma.section.findFirstOrThrow({
+          where: { userId, name },
+          select: { id: true, name: true, createdAt: true },
+        });
+        return { section, created: false };
+      }
+
+      throw error;
+    }
   }
 
   async list(userId: string): Promise<SectionSummary[]> {
@@ -28,13 +76,29 @@ class SectionService {
     }));
   }
 
-  async rename(userId: string, sectionId: string, name: string) {
+  /**
+   * Renames a section, or reports why it could not. Same shape and same
+   * reasoning as TagService.rename: renaming onto a name the user already has
+   * is a conflict, not a silent merge.
+   */
+  async rename(userId: string, sectionId: string, name: string): Promise<RenameSectionResult> {
+    const existing = await prisma.section.findFirst({
+      where: { userId, name, NOT: { id: sectionId } },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return { status: "conflict" };
+    }
+
     const { count } = await prisma.section.updateMany({
       where: { id: sectionId, userId },
       data: { name },
     });
 
-    return count > 0 ? { id: sectionId, name } : null;
+    return count > 0
+      ? { status: "renamed", section: { id: sectionId, name } }
+      : { status: "not-found" };
   }
 
   // Deletes the Section row itself. onDelete: Cascade on ItemSection's

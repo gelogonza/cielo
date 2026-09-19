@@ -68,7 +68,7 @@ export function Sidebar({
     await send(
       `/api/sections/${id}`,
       { method: "PATCH", body: { name } },
-      null,
+      `You already have a section called "${name}".`,
       "Could not rename that section.",
     );
   }

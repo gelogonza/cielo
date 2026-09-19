@@ -52,6 +52,11 @@ model Section {
 
   items ItemSection[]
 
+  // One section per name, per user — the same constraint Tag has had since the
+  // start. An import already reuses a section by name, so two called "Design"
+  // would each hold half the items the user thought were together.
+  // Applied by prisma/manual-sql/008_section_name_unique.sql.
+  @@unique([userId, name], name: "unique_user_section_name")
   @@map("sections")
 }
 

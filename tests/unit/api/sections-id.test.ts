@@ -21,7 +21,7 @@ describe("PATCH /api/sections/:id", () => {
   });
 
   it("renames the section and returns it", async () => {
-    rename.mockResolvedValue({ id: "section-1", name: "New name" });
+    rename.mockResolvedValue({ status: "renamed", section: { id: "section-1", name: "New name" } });
 
     const request = new NextRequest("http://localhost/api/sections/section-1", {
       method: "PATCH",
@@ -35,7 +35,7 @@ describe("PATCH /api/sections/:id", () => {
   });
 
   it("returns 404 when the section doesn't exist or isn't owned by the user", async () => {
-    rename.mockResolvedValue(null);
+    rename.mockResolvedValue({ status: "not-found" });
 
     const request = new NextRequest("http://localhost/api/sections/section-1", {
       method: "PATCH",
@@ -45,6 +45,17 @@ describe("PATCH /api/sections/:id", () => {
     const response = await PATCH(request, context("section-1"));
 
     expect(response.status).toBe(404);
+  });
+
+  it("answers 409 when the user already has that section name, rather than merging", async () => {
+    rename.mockResolvedValue({ status: "conflict" });
+
+    const request = new NextRequest("http://localhost/api/sections/section-1", {
+      method: "PATCH",
+      body: JSON.stringify({ name: "Design" }),
+    });
+
+    expect((await PATCH(request, context("section-1"))).status).toBe(409);
   });
 
   it("returns 400 without calling the service when name is missing", async () => {

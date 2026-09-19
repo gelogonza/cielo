@@ -377,13 +377,15 @@ parameter here, and issuing a query clears whatever filter was active.
 
 ## Sections
 
-**POST /api/sections** — create
+**POST /api/sections** — create (or return the existing one if that name is
+already taken for this user, since `Section` is unique on `(userId, name)` —
+same behaviour as `POST /api/tags`)
 
 ```json
 // Request
 { "name": "string" }
 
-// Response 201
+// Response 201 (or 200 if it already existed)
 { "id": "uuid", "name": "string", "createdAt": "ISO 8601 datetime" }
 ```
 
@@ -403,6 +405,9 @@ parameter here, and issuing a query clears whatever filter was active.
 // Response 200
 { "id": "uuid", "name": "string" }
 ```
+
+Renaming onto a name the user already has answers **`409`** rather than merging
+the two, the same as `PATCH /api/tags/:id`.
 
 **DELETE /api/sections/:id**
 
