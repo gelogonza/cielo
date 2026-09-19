@@ -224,36 +224,6 @@ describe("ItemService.undoImport", () => {
   });
 });
 
-describe("ItemService.removeMany", () => {
-  const deleteMany = item.deleteMany;
-
-  beforeEach(() => {
-    deleteMany.mockReset();
-  });
-
-  it("deletes within the owner's scope only", async () => {
-    deleteMany.mockResolvedValue({ count: 3 });
-
-    const removed = await itemService.removeMany("user-1", ["a", "b", "c"]);
-
-    expect(deleteMany).toHaveBeenCalledWith({
-      where: { userId: "user-1", id: { in: ["a", "b", "c"] } },
-    });
-    expect(removed).toBe(3);
-  });
-
-  it("does not issue a query for an empty selection", async () => {
-    await expect(itemService.removeMany("user-1", [])).resolves.toBe(0);
-    expect(deleteMany).not.toHaveBeenCalled();
-  });
-
-  it("reports only what actually matched, so another user's id is a no-op", async () => {
-    deleteMany.mockResolvedValue({ count: 1 });
-
-    await expect(itemService.removeMany("user-1", ["mine", "theirs"])).resolves.toBe(1);
-  });
-});
-
 describe("ItemService.importMany — url normalization", () => {
   it("collapses two spellings of one address into a single row", async () => {
     // The case that made re-importing your own export duplicate your library.

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Logo } from "@/components/brand/logo";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import type { RestorableItem } from "@/lib/items/restore";
 import type { SerializedItem } from "@/lib/items/serialize";
 import { FeedSkeleton } from "./card-skeleton";
 import { ItemCard } from "./item-card";
@@ -41,6 +42,11 @@ export function LibraryView({
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  // What the last bulk delete removed, kept only while the undo is on screen.
+  // Nothing is stored server-side, so the offer and the thing backing it
+  // disappear together — no countdown racing the user, and no silent expiry.
+  const [undoable, setUndoable] = useState<{ items: RestorableItem[] } | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -185,12 +191,42 @@ export function LibraryView({
 
       if (!response.ok) return;
 
+      const { restorable } = await response.json();
+
       const removed = new Set(selectedIds);
       setItems((current) => current.filter((item) => !removed.has(item.id)));
       leaveSelection();
+      setUndoable({ items: restorable });
       router.refresh();
     } finally {
       setIsDeleting(false);
+    }
+  }
+
+  async function undoDelete() {
+    if (!undoable) {
+      return;
+    }
+
+    setIsRestoring(true);
+
+    try {
+      const response = await fetch("/api/items/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: undoable.items }),
+      });
+
+      if (!response.ok) return;
+
+      setUndoable(null);
+      // Reload from the top rather than splicing the rows back in: they belong
+      // at their original saved_at positions, which is a sort this page cannot
+      // redo from what it is holding.
+      await load(activeSectionId, activeTagId, query);
+      router.refresh();
+    } finally {
+      setIsRestoring(false);
     }
   }
 
@@ -305,6 +341,33 @@ export function LibraryView({
             className="h-9 rounded-full bg-red-600 px-4 text-sm font-medium text-white transition hover:brightness-95 disabled:opacity-40"
           >
             {isDeleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      )}
+
+      {!isSelecting && undoable && (
+        <div
+          role="status"
+          className="border-line bg-surface fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border py-2 pr-2 pl-5 shadow-[0_8px_30px_rgba(18,18,18,0.12)]"
+        >
+          <span className="text-sm">
+            {undoable.items.length} deleted
+          </span>
+          <button
+            type="button"
+            disabled={isRestoring}
+            onClick={() => void undoDelete()}
+            className="bg-ink text-primary-text h-9 rounded-full px-4 text-sm font-medium transition hover:brightness-95 disabled:opacity-40"
+          >
+            {isRestoring ? "Putting back…" : "Undo"}
+          </button>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setUndoable(null)}
+            className="text-muted hover:text-primary-text flex size-9 items-center justify-center rounded-full text-lg leading-none transition"
+          >
+            <span aria-hidden="true">&times;</span>
           </button>
         </div>
       )}

@@ -48,7 +48,9 @@ export const DELETE = withAuth(async (request, _context, user) => {
 
   // Scoped to the owner, so an id belonging to someone else simply does not
   // match rather than erroring — the count reports what actually went.
-  const deleted = await itemService.removeMany(user.id, body.data.ids);
+  const { deleted, restorable } = await itemService.removeMany(user.id, body.data.ids);
 
-  return NextResponse.json({ deleted });
+  // Handed back so the client can offer undo without the server keeping a
+  // trash table. POST it to /api/items/restore to put it back.
+  return NextResponse.json({ deleted, restorable });
 });

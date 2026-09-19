@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import type { ContentType } from "@/lib/generated/prisma/client";
 import { detectPlatform } from "@/lib/items/platform";
+import { toRestorable, type RestorableItem } from "@/lib/items/restore";
 import { scrapeUrl } from "@/lib/scrape/scrape-url";
 import { tagService } from "@/lib/tags/tag-service";
 import { normalizeUrl } from "@/lib/url/normalize-url";
@@ -71,6 +72,17 @@ export interface SearchItemsInput {
 export interface ListItemsResult {
   items: Awaited<ReturnType<typeof loadWithRelations>>[];
   nextCursor: string | null;
+}
+
+export interface RemoveManyResult {
+  /** How many rows actually matched this user and went. */
+  deleted: number;
+  /** The same rows, in the shape `restoreMany` puts back. */
+  restorable: RestorableItem[];
+}
+
+export interface RestoreManyResult {
+  restored: number;
 }
 
 export const DEFAULT_PAGE_SIZE = 20;
@@ -462,16 +474,122 @@ class ItemService {
   }
 
   /** Bulk delete, scoped to the owner so stray ids cannot reach another user. */
-  async removeMany(userId: string, itemIds: string[]): Promise<number> {
+  /**
+   * Bulk delete, with everything needed to put it back.
+   *
+   * The rows are read and deleted in one transaction, so what comes back is
+   * exactly what went — nothing can be written in between and then silently
+   * lost. The snapshot goes to the client rather than a server-side trash
+   * table: there is then nothing to expire or sweep up, and the undo offer
+   * disappears at exactly the moment the thing backing it does.
+   */
+  async removeMany(userId: string, itemIds: string[]): Promise<RemoveManyResult> {
     if (itemIds.length === 0) {
-      return 0;
+      return { deleted: 0, restorable: [] };
     }
 
-    const { count } = await prisma.item.deleteMany({
-      where: { userId, id: { in: itemIds } },
+    return prisma.$transaction(async (tx) => {
+      const rows = await tx.item.findMany({
+        where: { userId, id: { in: itemIds } },
+        include: {
+          sections: { select: { sectionId: true } },
+          tags: { select: { tagId: true } },
+          note: { select: { body: true } },
+        },
+      });
+
+      const { count } = await tx.item.deleteMany({
+        where: { userId, id: { in: rows.map((row) => row.id) } },
+      });
+
+      return { deleted: count, restorable: rows.map(toRestorable) };
+    });
+  }
+
+  /**
+   * Undo of `removeMany`. Recreates the rows under their **original ids**, so
+   * this is a genuine undo rather than a re-save: anything that referenced an
+   * item — an import batch, a section — finds it where it was.
+   *
+   * `skipDuplicates` does the reconciling. An item whose url was saved again
+   * in the meantime, or whose id somehow already exists, is skipped instead of
+   * failing the whole restore, and `restored` reports what actually landed.
+   */
+  async restoreMany(userId: string, items: RestorableItem[]): Promise<RestoreManyResult> {
+    if (items.length === 0) {
+      return { restored: 0 };
+    }
+
+    // Section and tag ids arrive from the client, so they are filtered to ones
+    // this user owns — otherwise a restore could file an item into someone
+    // else's section. A section deleted since the delete is simply dropped.
+    const [sections, tags] = await Promise.all([
+      prisma.section.findMany({
+        where: { userId, id: { in: items.flatMap((item) => item.sectionIds) } },
+        select: { id: true },
+      }),
+      prisma.tag.findMany({
+        where: { userId, id: { in: items.flatMap((item) => item.tagIds) } },
+        select: { id: true },
+      }),
+    ]);
+
+    const ownedSections = new Set(sections.map((section) => section.id));
+    const ownedTags = new Set(tags.map((tag) => tag.id));
+
+    await prisma.item.createMany({
+      data: items.map((item) => ({
+        id: item.id,
+        userId,
+        url: item.url,
+        title: item.title,
+        body: item.body,
+        thumbnailUrl: item.thumbnailUrl,
+        contentType: item.contentType,
+        sourceType: item.sourceType,
+        sourcePlatform: item.sourcePlatform,
+        savedAt: new Date(item.savedAt),
+        importBatch: item.importBatch,
+      })),
+      skipDuplicates: true,
     });
 
-    return count;
+    // Only the rows that actually landed get their relations back — a skipped
+    // duplicate is someone else's item now, or one already restored.
+    const landed = await prisma.item.findMany({
+      where: { userId, id: { in: items.map((item) => item.id) } },
+      select: { id: true },
+    });
+    const restoredIds = new Set(landed.map((item) => item.id));
+    const restored = items.filter((item) => restoredIds.has(item.id));
+
+    const itemSections = restored.flatMap((item) =>
+      item.sectionIds
+        .filter((sectionId) => ownedSections.has(sectionId))
+        .map((sectionId) => ({ itemId: item.id, sectionId })),
+    );
+
+    const itemTags = restored.flatMap((item) =>
+      item.tagIds
+        .filter((tagId) => ownedTags.has(tagId))
+        .map((tagId) => ({ itemId: item.id, tagId })),
+    );
+
+    const notes = restored
+      .filter((item) => item.note)
+      .map((item) => ({ itemId: item.id, body: item.note! }));
+
+    await Promise.all([
+      itemSections.length > 0
+        ? prisma.itemSection.createMany({ data: itemSections, skipDuplicates: true })
+        : null,
+      itemTags.length > 0
+        ? prisma.itemTag.createMany({ data: itemTags, skipDuplicates: true })
+        : null,
+      notes.length > 0 ? prisma.note.createMany({ data: notes, skipDuplicates: true }) : null,
+    ]);
+
+    return { restored: restored.length };
   }
 
   /** Find-or-create every folder name in one pass, returning name → id. */

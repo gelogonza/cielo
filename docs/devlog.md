@@ -37,6 +37,56 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — Undo a bulk delete
+
+**What:** After a bulk delete the selection bar is replaced by "N deleted —
+Undo". `DELETE /api/items` now hands back a `restorable` snapshot of the rows
+it removed, and `POST /api/items/restore` puts them back under their original
+ids, with their sections, tags, notes and original `savedAt`.
+
+**Why:** import had undo and permanent deletion did not, which is the wrong way
+round. Selecting twenty things and hitting Delete was the scariest button in
+the app.
+
+**Decisions worth not relitigating:**
+
+- **The snapshot goes to the client, not a trash table.** No soft-delete column
+  (which would have to be threaded through list, search, count, export and the
+  dedup lookup, and would make `unique(user_id, url)` block re-saving something
+  in the trash), no expiry job, nothing to sweep up. The undo offer and the
+  data backing it appear and disappear together.
+- **No countdown.** The bar stays until you use it, dismiss it, or leave — a
+  timer racing the user is exactly the pressure the product principles rule
+  out. Reloading ends the offer, which is visible rather than silent: the bar
+  goes with it.
+- **Restored under the original id**, so it is an undo and not a re-save —
+  anything that referenced the item still finds it.
+- **The read and the delete are one transaction**, so nothing written in
+  between is silently lost from the snapshot.
+- **`skipDuplicates` does the reconciling.** An item whose url was saved again
+  in the meantime is skipped rather than failing the whole restore, and
+  `restored` reports what actually landed. Section and tag ids are filtered to
+  ones the user owns, so a crafted payload cannot file into someone else's
+  section.
+
+**Touched:** `lib/items/restore.ts` and `app/api/items/restore/route.ts` (new),
+`lib/items/item-service.ts` (`removeMany` now returns a snapshot,
+`restoreMany`), `app/api/items/route.ts`, `components/library/library-view.tsx`,
+`docs/api-contract.md`, tests (`removeMany`'s moved next to `restoreMany`).
+
+**Verified:** 20 new tests. Live: deleted two real items — one with a note, a
+section and two tags, one with a 2020 `savedAt` from the old import — then
+undid. Both came back under the same ids with identical `savedAt`, sections,
+tags and note; counts went 14 → 12 → 14 and the section counts with them. The
+bar's states all behave: entering selection hides a pending undo rather than
+stacking, cancelling brings it back, × dismisses it.
+
+**Follow-ups:** The single-item delete in the detail overlay still has no undo —
+it is a deliberate act with the item in front of you, but the asymmetry is now
+the other way round. No "select all" either.
+
+---
+
 ## 2026-09-19 — Rename and delete a section from the sidebar
 
 **What:** Each section row has a `···` menu with Rename and Delete. Rename

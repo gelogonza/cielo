@@ -275,12 +275,61 @@ Bulk delete, for the library's selection mode.
 // Request (1-500 ids)
 { "ids": ["uuid", "..."] }
 
-// Response 200 — the count that actually matched this user
-{ "deleted": "number" }
+// Response 200
+{
+  "deleted": "number — the count that actually matched this user",
+  "restorable": ["…the deleted rows, in the shape POST /api/items/restore takes"]
+}
 ```
 
 Ids belonging to another user simply do not match rather than erroring, so
 `deleted` is the truthful count.
+
+The rows are read and deleted in one transaction, and handed back as
+`restorable` so the client can offer undo. There is no server-side trash: the
+snapshot lives in the page for as long as the undo is on screen, so there is
+nothing to expire or sweep up, and no countdown racing the user. Reloading the
+page ends the offer, which is visible — the undo disappears with it.
+
+---
+
+## POST /api/items/restore
+
+Undo of a bulk delete. The body is the `restorable` snapshot the delete handed
+back.
+
+```json
+// Request (1-500 items)
+{
+  "items": [
+    {
+      "id": "uuid — restored under its ORIGINAL id, so this is an undo not a re-save",
+      "url": "string | null",
+      "title": "string | null",
+      "body": "string | null",
+      "thumbnailUrl": "string | null",
+      "contentType": "LINK | IMAGE | VIDEO | CAROUSEL | TEXT",
+      "sourceType": "WEB | DIRECT",
+      "sourcePlatform": "string | null",
+      "savedAt": "ISO 8601 datetime",
+      "importBatch": "uuid | null",
+      "sectionIds": ["uuid", "..."],
+      "tagIds": ["uuid", "..."],
+      "note": "string | null"
+    }
+  ]
+}
+
+// Response 200 — how many actually landed
+{ "restored": "number" }
+```
+
+- `userId` comes from the session, never the body, and `sectionIds`/`tagIds`
+  are filtered to ones this user owns — a crafted payload cannot file an item
+  into someone else's section.
+- An item whose url was saved again in the meantime is **skipped**, not an
+  error, and is not counted in `restored`. So is a section or tag deleted since
+  the delete: the item comes back without it rather than failing.
 
 ---
 
