@@ -156,8 +156,17 @@ function previousHeading(list: Element): string | null {
     sibling = sibling.previousElementSibling;
   }
 
-  const parentHeading = list.parentElement?.querySelector("h3");
-  return parentHeading?.textContent?.trim() ?? null;
+  // <DT><H3>Name</H3><DL>…</DL></DT> — the heading is the list's own parent
+  // item. Scoped to a direct child of that <DT>, because an unscoped query
+  // walks the whole subtree: for a top-level list, whose parent is <body>, it
+  // would hand every loose bookmark the first folder heading in the file.
+  const parent = list.parentElement;
+
+  if (!parent || parent.tagName !== "DT") {
+    return null;
+  }
+
+  return parent.querySelector(":scope > h3")?.textContent?.trim() ?? null;
 }
 
 function parseCsv(text: string): ParseResult {

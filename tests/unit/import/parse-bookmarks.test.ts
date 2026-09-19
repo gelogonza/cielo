@@ -115,3 +115,31 @@ Broken,not-a-url,Design,,`;
     expect(noUrl.skipped).toBe(1);
   });
 });
+
+/** A loose bookmark sitting outside every folder, which Chrome does write. */
+const LOOSE_AT_TOP_LEVEL = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<TITLE>Bookmarks</TITLE>
+<H1>Bookmarks</H1>
+<DL><p>
+  <DT><A HREF="https://example.com/loose">Loose</A>
+  <DT><H3>Design</H3>
+  <DL><p>
+    <DT><A HREF="https://example.com/filed">Filed</A>
+  </DL><p>
+</DL><p>`;
+
+describe("parseBookmarkFile — a bookmark outside every folder", () => {
+  const result = parseBookmarkFile(LOOSE_AT_TOP_LEVEL, "bookmarks.html");
+
+  it("leaves it unfiled instead of borrowing the first folder in the file", () => {
+    expect(result.bookmarks.find((b) => b.url.endsWith("/loose"))?.folder).toBeNull();
+  });
+
+  it("still files the one that is in a folder", () => {
+    expect(result.bookmarks.find((b) => b.url.endsWith("/filed"))?.folder).toBe("Design");
+  });
+
+  it("does not invent a duplicated folder path", () => {
+    expect(result.folders).toEqual(["Design"]);
+  });
+});

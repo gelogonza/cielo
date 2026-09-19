@@ -37,6 +37,31 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — Fix a loose bookmark borrowing the wrong folder on import
+
+**What:** A bookmark sitting outside every folder in an export now imports
+unfiled. It was being filed into whichever folder appeared first in the file,
+and its section path was doubled ("Design / Design").
+
+**Why:** `folderPathOf`'s last-resort fallback ran `parentElement.querySelector("h3")`,
+which searches the whole subtree — for a top-level `<DL>`, whose parent is
+`<body>`, that returns the first heading anywhere in the document. The fallback
+only ever meant to cover `<DT><H3>Name</H3><DL>…</DL></DT>`, so it is now scoped
+to a direct child of a containing `<DT>`.
+
+**Why it was not caught:** the Chrome fixture's only top-level bookmarks are a
+`javascript:` bookmarklet and a `place:` smart folder, both skipped as
+unsaveable before the folder is ever resolved. Found by round-tripping Cielo's
+own export back through the importer.
+
+**Touched:** `lib/import/parse-bookmarks.ts`,
+`tests/unit/import/parse-bookmarks.test.ts` (a fixture with a loose top-level
+link alongside a real folder).
+
+**Follow-ups:** none.
+
+---
+
 ## 2026-09-19 — The extension's Cielo address is configurable
 
 **What:** An Options page where you set which Cielo the extension talks to.
