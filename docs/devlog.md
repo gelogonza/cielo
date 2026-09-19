@@ -37,6 +37,36 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — The extension checks the address you give it
+
+**What:** Saving an address in the extension's Options now probes it and says
+what it found, instead of silently accepting anything.
+
+**Why:** a typo'd host was invisible until the next save failed, which is the
+worst place to discover it. Follow-up from the configurable-address entry.
+
+**Decisions worth not relitigating:**
+
+- **`/api/sections` is the probe, and a `401` counts as success.** The route is
+  behind `withAuth`, so a 401 proves Cielo is there just as well as a 200 — and
+  saying which one it is matters, because "wrong address" and "not logged in"
+  are indistinguishable from the toolbar otherwise.
+- The wording lives in a pure `describeConnection`, so it is tested without a
+  network; `probeApi` takes an injectable fetch for the same reason.
+- No new permission — `<all_urls>` already covers whatever the user types.
+
+**Touched:** `extension/src/lib/connection.js` (new),
+`extension/src/options.js`, `extension/README.md`,
+`tests/unit/extension/connection.test.ts`.
+
+**Verified:** 7 new tests over the probe and every wording branch, including a
+server that answers but is not a Cielo. 440 tests, type-check and lint pass.
+
+**Follow-ups:** The check runs on save only, not on load, so an address that
+worked yesterday and is down today still looks fine until you save again.
+
+---
+
 ## 2026-09-19 — Select all, and undo a single delete too
 
 **What:** The selection bar gets "Select all" (which becomes "Clear" once

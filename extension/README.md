@@ -32,6 +32,10 @@ The value lives in `chrome.storage.local`, not in the build, so one build works
 against both a dev server and production, and switching between them needs no
 reload. `src/lib/config.js` holds the default and the parsing rules.
 
+Saving also checks the address: it asks the app for `/api/sections` and says
+whether a Cielo answered. A `401` counts as success — it proves Cielo is there
+and only means you are not logged in yet.
+
 ## What it does
 
 | Right-click on | Menu item           | What gets saved                                               |
