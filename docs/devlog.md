@@ -37,6 +37,44 @@ probably two changes.
 
 ---
 
+## 2026-09-19 — Component tests, and a section row that reads properly
+
+**What:** React Testing Library is set up, and the two components with real
+interaction logic — `SectionRow` and `TagEditor` — are covered. Vitest now
+picks up `.test.tsx`.
+
+**Why:** the standing "no React testing setup" follow-up. Both components carry
+branching that unit-testing the routes underneath cannot reach: menu states,
+Escape handling, the confirm step, the singular/plural/zero copy.
+
+**What it immediately caught:** `SectionRow`'s name and count are adjacent
+spans with no whitespace between them, so the button's computed accessible name
+was "Inspo2" — what a screen reader would have read out. It now carries an
+explicit `aria-label` ("Inspo, 2 items").
+
+**Decisions worth not relitigating:**
+
+- **jsdom per file, not a global setup.** `// @vitest-environment jsdom` is
+  already how the DOM-dependent parser tests opt in; a global setup would load
+  RTL into every node-environment test for no reason.
+- **No `esbuild.jsx` option.** Vitest 4 uses oxc, which warns that the esbuild
+  block is ignored and handles automatic JSX itself.
+- Tests query by role and accessible name, which is why the "Inspo2" problem
+  surfaced at all — querying by test id would have hidden it.
+
+**Touched:** `vitest.config.mts`, `package.json` (RTL, user-event, jest-dom as
+dev dependencies), `tests/unit/library/{section-row,tag-editor}.test.tsx` (new),
+`components/library/section-row.tsx`.
+
+**Verified:** 16 component tests, 463 in total. Type-check and lint pass.
+
+**Follow-ups:** Only these two components are covered. `library-view` is the
+one that would benefit most next — selection mode, the undo bar and infinite
+scroll all live there — but it needs `next/navigation` and `fetch` stubbed,
+which is a bigger harness than this change warranted.
+
+---
+
 ## 2026-09-19 — One section per name, per user
 
 **What:** Creating a section with a name you already have hands back that

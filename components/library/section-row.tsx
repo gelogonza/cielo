@@ -95,6 +95,9 @@ export function SectionRow({
         type="button"
         onClick={onSelect}
         aria-current={active ? "true" : undefined}
+        // The name and the count are adjacent spans with no whitespace between
+        // them, so the computed name would be "Inspo2".
+        aria-label={`${name}, ${count} ${count === 1 ? "item" : "items"}`}
         className={`rounded-row flex h-[46px] w-full items-center gap-2 px-[18px] whitespace-nowrap transition lg:justify-between lg:gap-0 ${
           active ? "bg-accent text-accent-contrast" : "text-primary-text hover:bg-ink"
         }`}
