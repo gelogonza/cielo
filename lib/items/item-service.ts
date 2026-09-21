@@ -74,6 +74,15 @@ export interface ListItemsResult {
   nextCursor: string | null;
 }
 
+export interface SaveUploadInput {
+  /** Storage key, not a URL — see lib/storage/item-images.ts. */
+  objectKey: string;
+  title: string | null;
+  contentType: ContentType;
+  sectionIds: string[];
+  tagNames: string[];
+}
+
 export interface RemoveManyResult {
   /** How many rows actually matched this user and went. */
   deleted: number;
@@ -166,6 +175,33 @@ class ItemService {
     await this.attachSectionsAndTags(userId, itemId, input.sectionIds, input.tagNames);
 
     return { item: await loadWithRelations(itemId), reused: Boolean(existing) };
+  }
+
+  /**
+   * An image uploaded straight into Cielo, with no source page.
+   *
+   * Separate from `saveLink` because there is nothing to dedupe on and nothing
+   * to scrape: `url` stays null (Postgres treats nulls as distinct under
+   * `unique(user_id, url)`, so two uploads never collide), and `thumbnailUrl`
+   * holds the storage object key rather than a web address — `serializeItem`
+   * turns that into the route that serves it.
+   */
+  async saveUpload(userId: string, input: SaveUploadInput) {
+    const created = await prisma.item.create({
+      data: {
+        userId,
+        url: null,
+        title: input.title,
+        thumbnailUrl: input.objectKey,
+        contentType: input.contentType,
+        sourceType: "DIRECT",
+        sourcePlatform: null,
+      },
+    });
+
+    await this.attachSectionsAndTags(userId, created.id, input.sectionIds, input.tagNames);
+
+    return loadWithRelations(created.id);
   }
 
   private async createItem(userId: string, input: SaveLinkInput): Promise<string> {

@@ -34,7 +34,14 @@ A Pinterest/Are.na/Cosmos/mymind-style moodboard app, but the differentiator is 
 - **API:** Next.js API routes / Vercel serverless functions (free tier)
 - **ORM:** Prisma — keeps the DB layer portable if Postgres ever needs to move off Supabase
 - **Auth + DB:** Supabase Auth + Postgres (free tier — note: pauses on inactivity, known issue from other projects). Auth is the less portable piece if switching providers later (password reset flow needed on migration); DB itself is vanilla Postgres, fully portable via Prisma
-- **Storage:** AWS S3 (pay-as-you-go) — used for Tier 3 direct uploads only, via presigned URLs; everything else is hotlinked (zero storage/bandwidth cost). Small, contained AWS piece — resume value without RDS/Cognito/Lambda scope creep
+- **Storage:** Supabase Storage — used for Tier 3 direct uploads only, via a
+  private `item-images` bucket; everything else is hotlinked (zero storage /
+  bandwidth cost). **Changed 2026-09-21, was AWS S3.** The S3 line below is
+  kept because the reasoning is still the reasoning, it just lost: a second
+  cloud account, a second bill and a fifth secret to leak, to store a handful
+  of images the project already had somewhere to put. Uploads go browser →
+  storage under the user's own session, so no service-role key exists to leak.
+  - *Superseded:* AWS S3 (pay-as-you-go) — used for Tier 3 direct uploads only, via presigned URLs; everything else is hotlinked (zero storage/bandwidth cost). Small, contained AWS piece — resume value without RDS/Cognito/Lambda scope creep
 - **Extension:** Chrome extension, Manifest V3 — permissions: `<all_urls>`, `contextMenus`, `storage`, `cookies`; right-click save only, no on-page UI overlay
 
 ## Key technical decisions

@@ -37,6 +37,65 @@ probably two changes.
 
 ---
 
+## 2026-09-21 — Direct image upload, on Supabase Storage not S3
+
+**What:** The Save dialog's Upload tab works. `POST /api/save-image` and
+`GET /api/items/:id/image` are implemented, backed by a private `item-images`
+bucket.
+
+**Why Supabase, when the plan said S3:** the plan's reasoning — a small,
+contained AWS piece — was fine, it just lost. S3 meant a second cloud account,
+a second bill and a fifth secret to leak, to store a handful of images the
+project already had somewhere to put. Plan doc amended rather than quietly
+contradicted; the old line is kept as *Superseded*.
+
+**Decisions worth not relitigating:**
+
+- **Private bucket, served through our own route, not a signed URL.** Signed
+  URLs expire — the exact failure that makes imported Instagram and TikTok
+  thumbnails go blank after days. `/api/items/:id/image` never changes and
+  checks the session every time. A public bucket was also rejected: unguessable
+  paths are not privacy, and "this is a private library" is a constraint.
+- **The file never touches the app server.** Browser → storage under the user's
+  own session, then the key is posted to confirm. So there is no service-role
+  key anywhere to leak.
+- **`thumbnailUrl` holds the storage key in the database and the route on the
+  wire.** `serializeItem` swaps it for `DIRECT` items; the key is unfetchable
+  and handing it out would be a leak for no gain.
+- **Ownership is checked in three places** — the storage policy, the confirm
+  route, and the image route — because the object and the row are written by
+  two different systems and only one of them knows which item points where.
+- **No SVG.** It is a document that can carry script, served back from our own
+  origin: stored XSS, for a format nobody needs to bookmark.
+- The original filename is dropped. Cielo uses none of it, and filenames say
+  more about people than they realise.
+
+**Not yet applied:** `prisma/manual-sql/009_item_images_bucket.sql` **must be
+run in the Supabase SQL editor as the owner** — the app role gets "permission
+denied for schema storage", the same wall as 008. Until then an upload fails
+with "That image could not be uploaded", which is the honest message.
+
+**Touched:** `lib/storage/item-images.ts`, `app/api/save-image/route.ts`,
+`app/api/items/[id]/image/route.ts`, `prisma/manual-sql/009_item_images_bucket.sql`
+(all new), `lib/items/item-service.ts` (`saveUpload`), `lib/items/serialize.ts`,
+`components/library/save-modal.tsx`, `.env.example` (AWS vars removed),
+`docs/bookmark-app-plan.md`, `docs/api-contract.md`, tests.
+
+**Verified:** 24 new tests over the key rules and both routes, including
+traversal, another user's folder, and an item whose object has gone. 495 total.
+Live: the Upload tab renders with the right accept list, picking a file and
+saving runs the whole path and fails at exactly one place — Supabase answers
+`{"statusCode":"404","code":"NoSuchBucket"}`, confirmed with a direct curl. **A
+successful round trip is untested until 009 is applied.**
+
+**Follow-ups:** Deleting an item leaves its object in the bucket — the row goes
+and the bytes stay, which is a slow leak and, worse, means "delete" does not
+fully delete. Undo needs the object to still be there, so the fix is a sweep of
+unreferenced objects, not a delete-on-delete. `contentType: VIDEO` is accepted
+by the route but the bucket's mime list is images only.
+
+---
+
 ## 2026-09-19 — Look before you import your saves
 
 **What:** Reading a platform's saves page and importing it are now two steps.

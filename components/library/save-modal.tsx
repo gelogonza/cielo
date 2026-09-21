@@ -1,11 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip, FieldLabel } from "@/components/ui/chip";
 import { Overlay } from "@/components/ui/overlay";
 import { detectPlatform } from "@/lib/items/platform";
 import type { SerializedItem } from "@/lib/items/serialize";
+import {
+  ALLOWED_IMAGE_TYPES,
+  ITEM_IMAGES_BUCKET,
+  MAX_IMAGE_BYTES,
+  isAllowedImageType,
+  objectKeyFor,
+} from "@/lib/storage/item-images";
+import { createClient } from "@/lib/supabase/client";
 
 /** Save dialog — Figma node 31:14 (560px wide). */
 export function SaveModal({
@@ -25,6 +33,8 @@ export function SaveModal({
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   function toggleSection(id: string) {
     setSelected((current) =>
@@ -82,7 +92,87 @@ export function SaveModal({
     };
   }
 
+  /**
+   * Uploads the file with the user's own Supabase session, then tells the
+   * server which key to attach. The image never passes through the app — it
+   * goes browser → storage, under a path only this user can write.
+   */
+  async function saveUpload() {
+    if (!file) {
+      setError("Choose an image to upload.");
+      return;
+    }
+
+    setError(null);
+    setIsSaving(true);
+
+    try {
+      const supabase = createClient();
+      const { data: session } = await supabase.auth.getUser();
+
+      if (!session.user) {
+        setError("Your session expired. Log in again.");
+        return;
+      }
+
+      const objectKey = objectKeyFor(session.user.id, file.type);
+      const upload = await supabase.storage
+        .from(ITEM_IMAGES_BUCKET)
+        .upload(objectKey, file, { contentType: file.type, upsert: false });
+
+      if (upload.error) {
+        setError("That image could not be uploaded. Try again.");
+        return;
+      }
+
+      const response = await fetch("/api/save-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          objectKey,
+          title: file.name.replace(/\.[^.]+$/, "") || null,
+          contentType: "IMAGE",
+          sectionIds: selected,
+          tagNames: tagNames(),
+        }),
+      });
+
+      if (!response.ok) {
+        setError("That image was uploaded but could not be saved. Try again.");
+        return;
+      }
+
+      onSaved(await response.json());
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function chooseFile(next: File | undefined) {
+    if (!next) {
+      return;
+    }
+
+    if (!isAllowedImageType(next.type)) {
+      setError("Cielo can keep PNG, JPEG, WebP, GIF and AVIF images.");
+      return;
+    }
+
+    if (next.size > MAX_IMAGE_BYTES) {
+      setError(`That image is larger than ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB.`);
+      return;
+    }
+
+    setError(null);
+    setFile(next);
+  }
+
   async function save() {
+    if (tab === "upload") {
+      await saveUpload();
+      return;
+    }
+
     const payload = buildBody();
 
     if (!payload) {
@@ -163,9 +253,33 @@ export function SaveModal({
             />
           </div>
         ) : (
-          <p className="bg-ink text-muted flex h-16 w-full items-center rounded-full px-[26px] text-[15px]">
-            Direct upload needs /api/save-image — not built yet.
-          </p>
+          <div
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              chooseFile(event.dataTransfer.files[0]);
+            }}
+            className="border-line bg-ink rounded-field flex flex-col items-center gap-3 border border-dashed px-6 py-8 text-center"
+          >
+            <p className="text-muted text-[15px]">
+              {file ? file.name : "Drop an image here"}
+            </p>
+            <input
+              ref={fileInput}
+              type="file"
+              aria-label="Image to upload"
+              accept={ALLOWED_IMAGE_TYPES.join(",")}
+              className="sr-only"
+              onChange={(event) => chooseFile(event.target.files?.[0])}
+            />
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              className="bg-surface text-primary-text rounded-full px-5 py-2.5 text-sm font-medium"
+            >
+              {file ? "Choose a different image" : "Choose an image"}
+            </button>
+          </div>
         )}
 
         <div className="flex flex-col gap-3">
@@ -198,7 +312,7 @@ export function SaveModal({
           </p>
         )}
 
-        <Button onClick={() => void save()} disabled={isSaving || tab === "upload"}>
+        <Button onClick={() => void save()} disabled={isSaving}>
           {isSaving ? "Saving..." : "Save"}
         </Button>
 

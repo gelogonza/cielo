@@ -72,21 +72,23 @@ Used by: extension (Tier 1 rich scrape, Tier 2 fallback) and web app (Tier 2 man
 
 ## POST /api/save-image
 
-Used by: web app / extension, Tier 3 direct upload (no source URL).
+**Implemented.** The confirm half of a direct upload (Tier 3 — an image saved
+with no source page to hotlink from).
 
-Two-step flow (presigned upload, not a raw multipart body):
+**The file never passes through this route.** The browser uploads it straight
+to the private `item-images` Supabase Storage bucket using the user's own
+session, at `<user id>/<uuid>.<ext>`, then posts the key here. The server holds
+no storage credentials, and the storage policies in
+`prisma/manual-sql/009_item_images_bucket.sql` mean one user can never write or
+read another's path.
 
-**Step 1 — request a presigned URL**
+**Step 1 — browser uploads**
 
-```json
-// Request
-{ "fileName": "string", "fileType": "image/png | image/jpeg | ..." }
-
-// Response 200
-{ "uploadUrl": "string — presigned S3 PUT url", "objectKey": "string" }
+```js
+supabase.storage.from("item-images").upload(objectKey, file, { contentType: file.type })
 ```
 
-**Step 2 — client uploads the file directly to S3 via `uploadUrl`, then confirms:**
+**Step 2 — confirm**
 
 ```json
 // Request
@@ -97,26 +99,35 @@ Two-step flow (presigned upload, not a raw multipart body):
   "sectionIds": ["uuid", "..."],
   "tagNames": ["string", "..."]
 }
+
+// Response 201 — the same item shape as GET /api/items
+{ "id": "uuid", "url": null, "thumbnailUrl": "/api/items/<id>/image", "sourceType": "DIRECT", "…": "…" }
 ```
 
-**Response `201`**
+- `url` stays null, so two uploads never collide under `unique(user_id, url)`.
+- `thumbnailUrl` on the wire is the **route**, never the storage key — the key
+  is private and unfetchable, and handing it out would be a leak for no gain.
+- **Errors**: `400` malformed body or a `contentType` other than IMAGE/VIDEO,
+  `401` unauthenticated, `403` an `objectKey` outside the caller's own folder.
+  Size (10MB) and format are enforced by the bucket, and by the browser before
+  it uploads.
 
-```json
-{
-  "id": "uuid",
-  "url": null,
-  "title": "string | null",
-  "thumbnailUrl": "string — S3 object url, derived from objectKey",
-  "contentType": "IMAGE | VIDEO",
-  "sourceType": "DIRECT",
-  "sourcePlatform": null,
-  "savedAt": "ISO 8601 datetime",
-  "sections": [{ "id": "uuid", "name": "string" }],
-  "tags": [{ "id": "uuid", "name": "string" }]
-}
-```
+---
 
-**Errors**: `400` missing `objectKey`/`fileType`, `401` unauthenticated, `413` file too large (cap TBD).
+## GET /api/items/:id/image
+
+**Implemented.** Serves a directly-uploaded image, checking the session on
+every request.
+
+A signed URL was the alternative and was rejected: signed URLs expire, which is
+the exact failure that makes imported Instagram and TikTok thumbnails go blank
+after a few days. This URL never changes.
+
+- **Response `200`** with the image bytes, `Cache-Control: private, max-age=31536000, immutable`
+  (immutable because a new upload gets a new uuid; private because it is the
+  user's own image and no shared cache may hold it).
+- **`404`** if the item is not this user's, is not a `DIRECT` upload, or the
+  object is missing from storage. `401` unauthenticated.
 
 ---
 

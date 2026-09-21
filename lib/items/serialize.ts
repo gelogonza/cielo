@@ -1,4 +1,5 @@
 import type { ContentType, SourceType } from "@/lib/generated/prisma/client";
+import { itemImageUrl } from "@/lib/storage/item-images";
 
 interface ItemWithRelations {
   id: string;
@@ -37,7 +38,13 @@ export function serializeItem(item: ItemWithRelations): SerializedItem {
     url: item.url,
     title: item.title,
     body: item.body ?? null,
-    thumbnailUrl: item.thumbnailUrl,
+    // A DIRECT item's thumbnailUrl is a private storage key, not something a
+    // browser can fetch. The wire shape carries the route that serves it
+    // instead, so the key never leaves the server.
+    thumbnailUrl:
+      item.sourceType === "DIRECT" && item.thumbnailUrl
+        ? itemImageUrl(item.id)
+        : item.thumbnailUrl,
     contentType: item.contentType,
     sourceType: item.sourceType,
     sourcePlatform: item.sourcePlatform,
